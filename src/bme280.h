@@ -1,0 +1,98 @@
+#ifndef BME280_H
+#define BME280_H
+
+#include "stm32f103xb.h"
+#include "result.h"
+
+#define BME280_REG_ID 0xD0
+#define BME280_REG_RESET 0xE0
+#define BME280_REG_CTRL_HUM 0xF2
+#define BME280_REG_STATUS 0xF3
+#define BME280_REG_CTRL_MEAS 0xF4
+#define BME280_REG_CONFIG 0xF5
+
+#define BME280_CTRL_HUM_OSRS_H_SHIFT 0U
+#define BME280_CTRL_HUM_OSRS_H_SKIP (0U << BME280_CTRL_HUM_OSRS_H_SHIFT)
+#define BME280_CTRL_HUM_OSRS_H_x1 (1U << BME280_CTRL_HUM_OSRS_H_SHIFT)
+#define BME280_CTRL_HUM_OSRS_H_x2 (2U << BME280_CTRL_HUM_OSRS_H_SHIFT)
+#define BME280_CTRL_HUM_OSRS_H_x4 (3U << BME280_CTRL_HUM_OSRS_H_SHIFT)
+#define BME280_CTRL_HUM_OSRS_H_x8 (4U << BME280_CTRL_HUM_OSRS_H_SHIFT)
+#define BME280_CTRL_HUM_OSRS_H_x16 (5U << BME280_CTRL_HUM_OSRS_H_SHIFT)
+
+#define BME280_CTRL_MEAS_OSRS_T_SHIFT 5U
+#define BME280_CTRL_MEAS_OSRS_T_SKIP (0U << BME280_CTRL_MEAS_OSRS_T_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_T_x1 (1U << BME280_CTRL_MEAS_OSRS_T_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_T_x2 (2U << BME280_CTRL_MEAS_OSRS_T_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_T_x4 (3U << BME280_CTRL_MEAS_OSRS_T_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_T_x8 (4U << BME280_CTRL_MEAS_OSRS_T_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_T_x16 (5U << BME280_CTRL_MEAS_OSRS_T_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_P_SHIFT 2U
+#define BME280_CTRL_MEAS_OSRS_P_SKIP (0U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_P_x1 (1U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_P_x2 (2U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_P_x4 (3U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_P_x8 (4U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
+#define BME280_CTRL_MEAS_OSRS_P_x16 (5U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
+#define BME280_CTRL_MEAS_MODE_SHIFT 0U
+#define BME280_CTRL_MEAS_MODE_SLEEP (0U << BME280_CTRL_MEAS_MODE_SHIFT)
+#define BME280_CTRL_MEAS_MODE_FORCED (1U << BME280_CTRL_MEAS_MODE_SHIFT)
+#define BME280_CTRL_MEAS_MODE_NORMAL (3U << BME280_CTRL_MEAS_MODE_SHIFT)
+
+#define BME280_CONFIG_TIME_STANDBY_SHIFT 5U
+#define BME280_CONFIG_TIME_STANDBY_0_5MS (0U << BME280_CONFIG_TIME_STANDBY_SHIFT)
+#define BME280_CONFIG_TIME_STANDBY_62_5MS (1U << BME280_CONFIG_TIME_STANDBY_SHIFT)
+#define BME280_CONFIG_TIME_STANDBY_125MS (2U << BME280_CONFIG_TIME_STANDBY_SHIFT)
+#define BME280_CONFIG_TIME_STANDBY_250MS (3U << BME280_CONFIG_TIME_STANDBY_SHIFT)
+#define BME280_CONFIG_TIME_STANDBY_500MS (4U << BME280_CONFIG_TIME_STANDBY_SHIFT)
+#define BME280_CONFIG_TIME_STANDBY_1000MS (5U << BME280_CONFIG_TIME_STANDBY_SHIFT)
+#define BME280_CONFIG_TIME_STANDBY_10MS (6U << BME280_CONFIG_TIME_STANDBY_SHIFT)
+#define BME280_CONFIG_TIME_STANDBY_20MS (7U << BME280_CONFIG_TIME_STANDBY_SHIFT)
+#define BME280_CONFIG_FILTER_SHIFT 2U
+#define BME280_CONFIG_FILTER_OFF (0U << BME280_CONFIG_FILTER_SHIFT)
+#define BME280_CONFIG_FILTER_x2 (1U << BME280_CONFIG_FILTER_SHIFT)
+#define BME280_CONFIG_FILTER_x4 (2U << BME280_CONFIG_FILTER_SHIFT)
+#define BME280_CONFIG_FILTER_x8 (3U << BME280_CONFIG_FILTER_SHIFT)
+#define BME280_CONFIG_FILTER_x16 (4U << BME280_CONFIG_FILTER_SHIFT)
+#define BME280_CONFIG_SPI3W_EN_SHIFT 0U
+#define BME280_CONFIG_SPI3W_EN_DISABLE (0U << BME280_CONFIG_SPI3W_EN_SHIFT)
+#define BME280_CONFIG_SPI3W_EN_ENABLE (1U << BME280_CONFIG_SPI3W_EN_SHIFT)
+
+#define BME280_RESET_CMD 0xB6
+
+typedef struct bme280_calib_data
+{
+    uint16_t dig_T1;
+    int16_t dig_T2;
+    int16_t dig_T3;
+    uint16_t dig_P1;
+    int16_t dig_P2;
+    int16_t dig_P3;
+    int16_t dig_P4;
+    int16_t dig_P5;
+    int16_t dig_P6;
+    int16_t dig_P7;
+    int16_t dig_P8;
+    int16_t dig_P9;
+    uint8_t dig_H1;
+    int16_t dig_H2;
+    uint8_t dig_H3;
+    int16_t dig_H4;
+    int16_t dig_H5;
+    int8_t dig_H6;
+} bme280_calib_data_t;
+
+uint8_t bme280_i2c_address(const uint8_t sdo);
+Result bme280_write_register(const uint8_t reg, const uint8_t value, const uint8_t slave_addr);
+Result bme280_read_registers(const uint8_t reg, uint8_t *data, const uint8_t len, const uint8_t slave_addr);
+Result bme280_soft_reset(const uint8_t slave_addr);
+Result bme280_get_calib(bme280_calib_data_t *calib, uint8_t slave_addr);
+Result bme280_trigger_forced_mode(uint8_t *ctrl_meas, const uint8_t slave_addr);
+Result bme280_read_measurements(int32_t *temp, uint32_t *press, uint32_t *hum, const bme280_calib_data_t *calib, uint8_t slave_addr);
+int32_t bme280_compensate_T(int32_t adc_T, const bme280_calib_data_t *calib);
+uint32_t bme280_compensate_P(int32_t adc_P, const bme280_calib_data_t *calib);
+uint32_t bme280_compensate_H(int32_t adc_H, const bme280_calib_data_t *calib);
+Result bme280_set_ctrl_hum(const uint8_t ctrl_hum, const uint8_t slave_addr);
+Result bme280_set_ctrl_meas(const uint8_t ctrl_meas, const uint8_t slave_addr);
+Result bme280_set_config(const uint8_t config, const uint8_t slave_addr);
+
+#endif // BME280_H
