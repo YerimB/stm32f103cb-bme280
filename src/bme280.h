@@ -82,17 +82,12 @@ typedef struct bme280_calib_data
 } bme280_calib_data_t;
 
 uint8_t bme280_i2c_address(const uint8_t sdo);
+Result bme280_init(const uint8_t bme280_addr);
 Result bme280_write_register(const uint8_t reg, const uint8_t value, const uint8_t slave_addr);
 Result bme280_read_registers(const uint8_t reg, uint8_t *data, const uint8_t len, const uint8_t slave_addr);
 Result bme280_soft_reset(const uint8_t slave_addr);
 Result bme280_get_calib(bme280_calib_data_t *calib, uint8_t slave_addr);
-Result bme280_trigger_forced_mode(uint8_t *ctrl_meas, const uint8_t slave_addr);
+Result bme280_trigger_forced_mode(const uint8_t slave_addr, uint8_t *ctrl_meas);
 Result bme280_read_measurements(int32_t *temp, uint32_t *press, uint32_t *hum, const bme280_calib_data_t *calib, uint8_t slave_addr);
-int32_t bme280_compensate_T(int32_t adc_T, const bme280_calib_data_t *calib);
-uint32_t bme280_compensate_P(int32_t adc_P, const bme280_calib_data_t *calib);
-uint32_t bme280_compensate_H(int32_t adc_H, const bme280_calib_data_t *calib);
-Result bme280_set_ctrl_hum(const uint8_t ctrl_hum, const uint8_t slave_addr);
-Result bme280_set_ctrl_meas(const uint8_t ctrl_meas, const uint8_t slave_addr);
-Result bme280_set_config(const uint8_t config, const uint8_t slave_addr);
 
 #endif // BME280_H

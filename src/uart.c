@@ -3,7 +3,7 @@
 
 static const uint32_t UART_BAUDRATE = 115200;
 
-uint32_t div_to_BRR(uint32_t frequency, uint32_t baudrate)
+static uint32_t div_to_BRR(uint32_t frequency, uint32_t baudrate)
 {
     uint32_t DIV_mantissa = frequency / (16 * baudrate);
     uint32_t DIV_fraction = (((((uint64_t)frequency * 100) / (16 * baudrate)) % 100) * 16) / 100;
@@ -47,7 +47,7 @@ void uart_print_str(const char *str)
     }
 }
 
-void uart_print_uint(uint32_t n)
+void uart_print_int(int32_t n)
 {
     if (n == 0)
     {
@@ -58,14 +58,17 @@ void uart_print_uint(uint32_t n)
     char buffer[11];
     uint8_t i = 0;
 
+    if (n >> 31)
+    {
+        uart_send_char('-');
+        n = -n;
+    }
+
     while (n > 0)
     {
         buffer[i++] = (n % 10) + '0';
         n /= 10;
     }
-
     while (i > 0)
-    {
         uart_send_char(buffer[--i]);
-    }
 }

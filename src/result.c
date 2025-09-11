@@ -29,6 +29,9 @@ void uart_display_result(const Result status)
     case SENSOR_CALIB_FAILED:
         uart_print_str("Sensor Calibration Read Failed\r\n");
         break;
+    case INVALID_PARAMETER:
+        uart_print_str("Invalid Parameter was provided\r\n");
+        break;
     default:
         uart_print_str("Unknown Error\r\n");
         break;

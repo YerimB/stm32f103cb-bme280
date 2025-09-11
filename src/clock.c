@@ -19,7 +19,7 @@ uint32_t get_systick_count(void)
     return systick_count;
 }
 
-uint32_t min(const uint32_t a, const uint32_t b)
+static uint32_t min(const uint32_t a, const uint32_t b)
 {
     return a > b ? b : a;
 }
