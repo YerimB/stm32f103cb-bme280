@@ -1,6 +1,24 @@
 #include "lcd1602.h"
 #include "uart.h"
 
+static I2C_TypeDef *lcd1602_i2c = I2C2; // Default value
+
+/**
+ * Sets the I2C peripheral instance used by the LCD1602 driver.
+ *
+ * This function allows the user to specify which I2C peripheral instance
+ * the LCD1602 driver should use for communication. If a valid (non-NULL)
+ * pointer is provided, the internal reference will be updated to use the
+ * specified I2C instance. By default, the driver uses I2C2.
+ *
+ * @param i2c_instance Pointer to the I2C peripheral instance to use (e.g., I2C1, I2C2).
+ */
+void lcd1602_set_i2c_instance(I2C_TypeDef *i2c_instance)
+{
+    if (i2c_instance)
+        lcd1602_i2c = i2c_instance;
+}
+
 Result lcd1602_send_cmd(const uint8_t cmd)
 {
     uint8_t data_u, data_l;
@@ -13,7 +31,7 @@ Result lcd1602_send_cmd(const uint8_t cmd)
     data_t[2] = data_l | 0x0C; // en=1, rs=0
     data_t[3] = data_l | 0x08; // en=0, rs=0
 
-    return i2c_write(I2C2, LCD1602_I2C_ADDR, data_t, 4, (I2C_ops_params_t){0, 1});
+    return i2c_write(lcd1602_i2c, LCD1602_I2C_ADDR, data_t, 4, (I2C_ops_params_t){0, 1});
 }
 
 Result lcd1602_send_data(const char data)
@@ -28,14 +46,14 @@ Result lcd1602_send_data(const char data)
     data_t[2] = data_l | 0x0D; // en=1, rs=1
     data_t[3] = data_l | 0x09; // en=0, rs=1
 
-    return i2c_write(I2C2, LCD1602_I2C_ADDR, data_t, 4, (I2C_ops_params_t){0, 1});
+    return i2c_write(lcd1602_i2c, LCD1602_I2C_ADDR, data_t, 4, (I2C_ops_params_t){0, 1});
 }
 
 Result lcd1602_set_backlight(const uint8_t state)
 {
     const uint8_t data = state ? LCD1602_BACKLIGHT_ON : LCD1602_BACKLIGHT_OFF;
 
-    return i2c_write(I2C2, LCD1602_I2C_ADDR, &data, 1, (I2C_ops_params_t){0, 1});
+    return i2c_write(lcd1602_i2c, LCD1602_I2C_ADDR, &data, 1, (I2C_ops_params_t){0, 1});
 }
 
 Result lcd1602_clear(void)
@@ -141,9 +159,8 @@ Result lcd1602_init(void)
         return r;
     delay_ms(1);
     // Display clear
-    if ((r = lcd1602_send_cmd(LCD1602_CMD_CLEAR_DISPLAY)) != OK)
+    if ((r = lcd1602_clear()) != OK)
         return r;
-    delay_ms(1);
     // Entry mode set: I/D=1,S=0 (increment, no shift)
     if ((r = lcd1602_send_cmd(LCD1602_CMD_ENTRY_MODE_SET_INCREMENT | LCD1602_CMD_ENTRY_MODE_SET_SHIFT_OFF)) != OK)
         return r;

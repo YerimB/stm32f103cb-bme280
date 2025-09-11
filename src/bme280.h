@@ -81,6 +81,7 @@ typedef struct bme280_calib_data
     int8_t dig_H6;
 } bme280_calib_data_t;
 
+void bme280_set_i2c_instance(I2C_TypeDef *i2c_instance);
 uint8_t bme280_i2c_address(const uint8_t sdo);
 Result bme280_init(const uint8_t bme280_addr);
 Result bme280_write_register(const uint8_t reg, const uint8_t value, const uint8_t slave_addr);

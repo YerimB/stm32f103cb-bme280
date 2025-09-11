@@ -41,6 +41,7 @@
 #define LCD1602_CMD_FN_SET_5x8_DOTS LCD1602_CMD_FN_SET_CTRL
 #define LCD1602_CMD_FN_SET_5x10_DOTS (LCD1602_CMD_FN_SET_CTRL | 0x04)
 
+void lcd1602_set_i2c_instance(I2C_TypeDef *i2c_instance);
 Result lcd1602_send_cmd(const uint8_t cmd);
 Result lcd1602_send_data(char data);
 Result lcd1602_set_backlight(const uint8_t state);

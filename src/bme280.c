@@ -2,6 +2,8 @@
 #include "bme280.h"
 #include "clock.h"
 
+static I2C_TypeDef *bme280_i2c = I2C1; // Default value
+
 static Result bme280_set_ctrl_hum(const uint8_t ctrl_hum, const uint8_t slave_addr);
 static Result bme280_set_ctrl_meas(const uint8_t ctrl_meas, const uint8_t slave_addr);
 static Result bme280_set_config(const uint8_t config, const uint8_t slave_addr);
@@ -12,6 +14,22 @@ static uint32_t bme280_compensate_H(int32_t adc_H, const bme280_calib_data_t *ca
 static Result bme280_wait_for_measurement(const uint8_t slave_addr);
 
 // BME280 reference: https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bme280-ds002.pdf
+
+/**
+ * Sets the I2C peripheral instance used by the BME280 driver.
+ *
+ * This function allows the user to specify which I2C peripheral instance
+ * the BME280 driver should use for communication. If a valid (non-NULL)
+ * pointer is provided, the internal reference will be updated to use the
+ * specified I2C instance. By default, the driver uses I2C1.
+ *
+ * @param i2c_instance Pointer to the I2C peripheral instance to use (e.g., I2C1, I2C2).
+ */
+void bme280_set_i2c_instance(I2C_TypeDef *i2c_instance)
+{
+    if (i2c_instance)
+        bme280_i2c = i2c_instance;
+}
 
 uint8_t bme280_i2c_address(const uint8_t sdo)
 {

@@ -59,7 +59,8 @@ static void uart_display_measurements(int32_t temperature, uint32_t pressure, ui
 
 static void lcd1602_display_measurements(int32_t temperature, uint32_t pressure, uint32_t humidity)
 {
-    const uint32_t pa = pressure / 256;
+    const uint32_t pa_int = pressure / (256 * 100);
+    const uint32_t pa_frac = (pressure / 256) % 100;
     const int32_t t_int = temperature / 100;
     const int32_t t_frac = (temperature % 100) / 10;
 
@@ -75,9 +76,9 @@ static void lcd1602_display_measurements(int32_t temperature, uint32_t pressure,
     // Second line: P:xxxx.xx hPa
     lcd1602_put_cursor(1, 0);
     lcd1602_put_str("P:");
-    lcd1602_put_int(pa / 100);
-    lcd1602_put_str(".");
-    lcd1602_put_int(pa % 100);
+    lcd1602_put_int(pa_int);
+    pa_frac < 10 ? lcd1602_put_str(".0") : lcd1602_put_str(".");
+    lcd1602_put_int(pa_frac);
     lcd1602_put_str(" hPa");
 }
 
@@ -101,6 +102,7 @@ static Result init_peripherals(uint8_t *bme280_addr, bme280_calib_data_t *calib_
     uart_print_str("I2C1 initialized (no remap)\r\n");
 
     *bme280_addr = bme280_i2c_address(0); // SDO is grounded, change to 1 if SDO is connected to VDDIO
+    bme280_set_i2c_instance(I2C1);
     r = bme280_init(*bme280_addr);
     if (r != OK)
         return r;
@@ -111,13 +113,8 @@ static Result init_peripherals(uint8_t *bme280_addr, bme280_calib_data_t *calib_
         return r;
     uart_print_str("Done.\r\n");
 
-    // Init I2C2
-    r = i2c2_init();
-    if (r != OK)
-        return r;
-    uart_print_str("I2C2 initialized\r\n");
-
     // Init LCD1602
+    lcd1602_set_i2c_instance(I2C1); // If using I2C2, be sure to initialize it using the `i2c2_init` function
     r = lcd1602_init();
     if (r != OK)
         return r;
