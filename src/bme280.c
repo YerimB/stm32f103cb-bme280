@@ -38,24 +38,17 @@ uint8_t bme280_i2c_address(const uint8_t sdo)
 
 Result bme280_init(const uint8_t bme280_addr)
 {
-    Result r;
     uint8_t bme280_id;
 
     // Reset BME280
-    r = bme280_soft_reset(bme280_addr);
-    if (r != OK)
-        return r;
+    OK_OR_PROPAGATE(bme280_soft_reset(bme280_addr));
     delay_ms(5); // Wait for reset to complete
 
-    r = bme280_read_registers(BME280_REG_ID, &bme280_id, 1, bme280_addr);
-    if (r != OK)
-        return r;
-    if (bme280_id != 0x60)
+    OK_OR_PROPAGATE(bme280_read_registers(BME280_REG_ID, &bme280_id, 1, bme280_addr));
+    if (bme280_id != BME280_ID)
         return SENSOR_NOT_DETECTED;
 
-    r = bme280_configure(bme280_addr);
-    if (r != OK)
-        return r;
+    OK_OR_PROPAGATE(bme280_configure(bme280_addr));
 
     return OK;
 }
@@ -67,11 +60,8 @@ Result bme280_write_register(const uint8_t reg, const uint8_t value, const uint8
 
 Result bme280_read_registers(const uint8_t reg, uint8_t *data, const uint8_t len, const uint8_t slave_addr)
 {
-    Result r = i2c_write(I2C1, slave_addr, &reg, 1, (I2C_ops_params_t){0, 0}); // Write register address to read from
-
-    if (r != OK)
-        return r;
-    return i2c_read(I2C1, slave_addr, data, len, (I2C_ops_params_t){1, 1}); // Read data
+    OK_OR_PROPAGATE(i2c_write(I2C1, slave_addr, &reg, 1, (I2C_ops_params_t){0, 0})); // Write register address to read from
+    return i2c_read(I2C1, slave_addr, data, len, (I2C_ops_params_t){1, 1});          // Read data
 }
 
 Result bme280_soft_reset(const uint8_t slave_addr)
@@ -79,18 +69,17 @@ Result bme280_soft_reset(const uint8_t slave_addr)
     return i2c_write(I2C1, slave_addr, (uint8_t[2]){BME280_REG_RESET, BME280_RESET_CMD}, 2, (I2C_ops_params_t){0, 1});
 }
 
+static Result calib_failure(const Result r)
+{
+    uart_display_result(r);
+    return SENSOR_CALIB_FAILED;
+}
+
 // Reference: Section 4.2.2 of the datasheet (Table 16)
 Result bme280_get_calib(bme280_calib_data_t *calib, const uint8_t slave_addr)
 {
-    Result r;
-
     uint8_t data[24];
-    r = bme280_read_registers(0x88, data, 24, slave_addr);
-    if (r != OK)
-    {
-        uart_display_result(r);
-        return SENSOR_CALIB_FAILED;
-    }
+    OK_OR_RETURN(bme280_read_registers(0x88, data, 24, slave_addr), calib_failure);
     calib->dig_T1 = (uint16_t)(data[0] | (data[1] << 8));
     calib->dig_T2 = (int16_t)(data[2] | (data[3] << 8));
     calib->dig_T3 = (int16_t)(data[4] | (data[5] << 8));
@@ -105,21 +94,11 @@ Result bme280_get_calib(bme280_calib_data_t *calib, const uint8_t slave_addr)
     calib->dig_P9 = (int16_t)(data[22] | (data[23] << 8));
 
     uint8_t h1;
-    r = bme280_read_registers(0xA1, &h1, 1, slave_addr);
-    if (r != OK)
-    {
-        uart_display_result(r);
-        return SENSOR_CALIB_FAILED;
-    }
+    OK_OR_RETURN(bme280_read_registers(0xA1, &h1, 1, slave_addr), calib_failure);
     calib->dig_H1 = h1;
 
     uint8_t hdata[7];
-    r = bme280_read_registers(0xE1, hdata, 7, slave_addr);
-    if (r != OK)
-    {
-        uart_display_result(r);
-        return SENSOR_CALIB_FAILED;
-    }
+    OK_OR_RETURN(bme280_read_registers(0xE1, hdata, 7, slave_addr), calib_failure);
     calib->dig_H2 = (int16_t)(hdata[0] | (hdata[1] << 8));
     calib->dig_H3 = hdata[2];
     // H4 and H5 share a byte, see datasheet for details
@@ -147,18 +126,13 @@ Result bme280_get_calib(bme280_calib_data_t *calib, const uint8_t slave_addr)
 Result bme280_trigger_forced_mode(const uint8_t slave_addr, uint8_t *ctrl_meas)
 {
     uint8_t ctrl_meas_forced;
-    Result r;
 
     if (ctrl_meas == NULL)
     {
         const uint8_t reg = BME280_REG_CTRL_MEAS;
 
-        r = i2c_write(I2C1, slave_addr, &reg, 1, (I2C_ops_params_t){0, 0});
-        if (r != OK)
-            return r;
-        r = i2c_read(I2C1, slave_addr, &ctrl_meas_forced, 1, (I2C_ops_params_t){1, 0});
-        if (r != OK)
-            return r;
+        OK_OR_PROPAGATE(i2c_write(I2C1, slave_addr, &reg, 1, (I2C_ops_params_t){0, 0}));
+        OK_OR_PROPAGATE(i2c_read(I2C1, slave_addr, &ctrl_meas_forced, 1, (I2C_ops_params_t){1, 0}));
         // Mask out the 2 LSBs and set to forced mode
         ctrl_meas_forced = (ctrl_meas_forced & ~0x3) | BME280_CTRL_MEAS_MODE_FORCED;
     }
@@ -167,36 +141,37 @@ Result bme280_trigger_forced_mode(const uint8_t slave_addr, uint8_t *ctrl_meas)
         ctrl_meas_forced = (*ctrl_meas & ~0x3) | BME280_CTRL_MEAS_MODE_FORCED;
     }
 
-    r = i2c_write(I2C1, slave_addr, (uint8_t[2]){BME280_REG_CTRL_MEAS, ctrl_meas_forced}, 2, (I2C_ops_params_t){1, 1});
-    if (r != OK)
-        return r;
-
+    OK_OR_PROPAGATE(i2c_write(I2C1, slave_addr, (uint8_t[2]){BME280_REG_CTRL_MEAS, ctrl_meas_forced}, 2, (I2C_ops_params_t){1, 1}));
     delay_ms(5); // Wait a short time to ensure the command is processed
+
     return OK;
 }
 
+/**
+ * Reads temperature, pressure, and humidity measurements from the BME280 sensor.
+ *
+ * @param temp  Pointer to store temperature in 0.01 °C units.
+ * @param press Pointer to store pressure in Q24.8 format (value/256 = Pa).
+ * @param hum   Pointer to store humidity in Q22.10 format (value/1024 = %RH).
+ * @param calib Pointer to calibration data.
+ * @param slave_addr I2C address of the BME280 sensor.
+ * @return Result code.
+ */
 Result bme280_read_measurements(int32_t *temp, uint32_t *press, uint32_t *hum, const bme280_calib_data_t *calib, uint8_t slave_addr)
 {
-    Result r = bme280_wait_for_measurement(slave_addr);
-
-    if (r != OK)
-        return r;
-
     uint8_t raw[8];
 
+    // Wait until measurement is complete
+    OK_OR_PROPAGATE(bme280_wait_for_measurement(slave_addr));
     // Read raw data burst (8 bytes) as per datasheet
-    r = bme280_read_registers(0xF7, raw, 8, slave_addr);
-    if (r != OK)
-        return r;
+    OK_OR_PROPAGATE(bme280_read_registers(0xF7, raw, 8, slave_addr));
 
     // Assemble 20-bit unsigned for press/temp, 16-bit for hum
     int32_t adc_P = ((uint32_t)raw[0] << 12) | ((uint32_t)raw[1] << 4) | (raw[2] >> 4);
     int32_t adc_T = ((uint32_t)raw[3] << 12) | ((uint32_t)raw[4] << 4) | (raw[5] >> 4);
     int32_t adc_H = ((uint32_t)raw[6] << 8) | raw[7];
 
-    int32_t t = bme280_compensate_T(adc_T, calib);
-
-    *temp = (uint32_t)t;
+    *temp = bme280_compensate_T(adc_T, calib);
     *press = bme280_compensate_P(adc_P, calib);
     *hum = bme280_compensate_H(adc_H, calib);
 
@@ -222,30 +197,16 @@ static Result bme280_set_config(const uint8_t config, const uint8_t slave_addr)
 
 static Result bme280_configure(const uint8_t bme280_addr)
 {
-    Result r;
-
 #ifdef BME280_NORMAL_MODE
-    r = bme280_set_ctrl_hum(BME280_CTRL_HUM_OSRS_H_x4, bme280_addr);
-    if (r != OK)
-        return r;
-    r = bme280_set_ctrl_meas(BME280_CTRL_MEAS_MODE_NORMAL | BME280_CTRL_MEAS_OSRS_P_x4 | BME280_CTRL_MEAS_OSRS_T_x4, bme280_addr);
-    if (r != OK)
-        return r;
-    r = bme280_set_config(BME280_CONFIG_TIME_STANDBY_1000MS | BME280_CONFIG_FILTER_x4, bme280_addr);
-    if (r != OK)
-        return r;
+    OK_OR_PROPAGATE(bme280_set_ctrl_hum(BME280_CTRL_HUM_OSRS_H_x4, bme280_addr));
+    OK_OR_PROPAGATE(bme280_set_ctrl_meas(BME280_CTRL_MEAS_MODE_NORMAL | BME280_CTRL_MEAS_OSRS_P_x4 | BME280_CTRL_MEAS_OSRS_T_x4, bme280_addr));
+    OK_OR_PROPAGATE(bme280_set_config(BME280_CONFIG_TIME_STANDBY_1000MS | BME280_CONFIG_FILTER_x4, bme280_addr));
 #else
     uint8_t ctrl_meas_osrs = BME280_CTRL_MEAS_OSRS_P_x16 | BME280_CTRL_MEAS_OSRS_T_x16;
 
-    r = bme280_set_ctrl_hum(BME280_CTRL_HUM_OSRS_H_x16, bme280_addr);
-    if (r != OK)
-        return r;
-    r = bme280_set_ctrl_meas(BME280_CTRL_MEAS_MODE_SLEEP | ctrl_meas_osrs, bme280_addr); // Ensure sleep mode even if it is the default on power-up
-    if (r != OK)
-        return r;
-    r = bme280_set_config(BME280_CONFIG_FILTER_OFF, bme280_addr);
-    if (r != OK)
-        return r;
+    OK_OR_PROPAGATE(bme280_set_ctrl_hum(BME280_CTRL_HUM_OSRS_H_x16, bme280_addr));
+    OK_OR_PROPAGATE(bme280_set_ctrl_meas(BME280_CTRL_MEAS_MODE_SLEEP | ctrl_meas_osrs, bme280_addr)); // Ensure sleep mode even if it is the default on power-up
+    OK_OR_PROPAGATE(bme280_set_config(BME280_CONFIG_FILTER_OFF, bme280_addr));
 #endif
 
     return OK;
@@ -264,10 +225,8 @@ static Result bme280_wait_for_measurement(const uint8_t slave_addr)
             return SENSOR_INVALID_READ;
         }
 
-        Result r = bme280_read_registers(BME280_REG_STATUS, &status, 1, slave_addr);
+        OK_OR_PROPAGATE(bme280_read_registers(BME280_REG_STATUS, &status, 1, slave_addr));
 
-        if (r != OK)
-            return r;
         if (!(status & 0x08)) // Bit 3: 1=measuring, 0=done
             break;
         delay_ms(1);

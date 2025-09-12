@@ -102,9 +102,7 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
 {
     if (!params.restart)
     {
-        Result r = i2c_wait_for_bus(i2c);
-        if (r != OK)
-            return r;
+        OK_OR_PROPAGATE(i2c_wait_for_bus(i2c));
     }
 
     uint32_t tp;
@@ -167,9 +165,7 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
     // We do not want to wait if we are restarting
     if (!params.restart)
     {
-        Result r = i2c_wait_for_bus(i2c);
-        if (r != OK)
-            return r;
+        OK_OR_PROPAGATE(i2c_wait_for_bus(i2c));
     }
 
     uint32_t tp;

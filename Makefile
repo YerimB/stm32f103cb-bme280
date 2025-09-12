@@ -1,6 +1,9 @@
 DEVICE          = STM32F103x8
 FLASH           = 0x08000000
+FLASHING_TOOL = stm32flash
+FLASHING_SERIAL_PORT = /dev/ttyUSB0 -b 115200
 
+CXXFLAGS += -Os
 USE_ST_CMSIS    = true
 
 # Use globally installed Arm GNU Toolchain

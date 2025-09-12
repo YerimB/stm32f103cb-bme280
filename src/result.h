@@ -19,6 +19,30 @@ typedef enum
     INVALID_PARAMETER, // Function parameter invalid
 } Result;
 
+#define OK_OR_PROPAGATE(expr)                    \
+    do                                           \
+    {                                            \
+        Result _ok_or_propagate_result = (expr); \
+        if (_ok_or_propagate_result != OK)       \
+            return _ok_or_propagate_result;      \
+    } while (0)
+
+#define OK_OR(expr, fallback)          \
+    do                                 \
+    {                                  \
+        Result _ok_or_result = (expr); \
+        if (_ok_or_result != OK)       \
+            fallback(_ok_or_result);   \
+    } while (0)
+
+#define OK_OR_RETURN(expr, fallback)               \
+    do                                             \
+    {                                              \
+        Result _ok_or_return_result = (expr);      \
+        if (_ok_or_return_result != OK)            \
+            return fallback(_ok_or_return_result); \
+    } while (0)
+
 void uart_display_result(const Result status);
 
 #endif // ERROR_H_

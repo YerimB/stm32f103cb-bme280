@@ -15,22 +15,15 @@ static int display_error_and_halt(const Result r)
 
 static Result display_welcome_message()
 {
-    Result r;
-
     uart_print_str("\n-------------------------------------\r\nSTM32F103CB WeAct Blue Pill Plus & BME280 Sensor Example\r\n-------------------------------------\r\n\n");
 
-    if ((r = lcd1602_put_cursor(0, 0)) != OK)
-        return r;
-    if ((r = lcd1602_put_str("STM32F103CB")) != OK)
-        return r;
-    if ((r = lcd1602_put_cursor(1, 0)) != OK)
-        return r;
-    if ((r = lcd1602_put_str("BME280 Sensor")) != OK)
-        return r;
+    OK_OR_PROPAGATE(lcd1602_put_cursor(0, 0));
+    OK_OR_PROPAGATE(lcd1602_put_str("STM32F103CB"));
+    OK_OR_PROPAGATE(lcd1602_put_cursor(1, 0));
+    OK_OR_PROPAGATE(lcd1602_put_str("BME280 Sensor"));
 
     delay_ms(3000);
-    if ((r = lcd1602_clear()) != OK)
-        return r;
+    OK_OR_PROPAGATE(lcd1602_clear());
     delay_ms(100);
 
     return OK;
@@ -57,7 +50,7 @@ static void uart_display_measurements(int32_t temperature, uint32_t pressure, ui
     uart_print_str(" %\r\n");
 }
 
-static void lcd1602_display_measurements(int32_t temperature, uint32_t pressure, uint32_t humidity)
+static Result lcd1602_display_measurements(int32_t temperature, uint32_t pressure, uint32_t humidity)
 {
     const uint32_t pa_int = pressure / (256 * 100);
     const uint32_t pa_frac = (pressure / 256) % 100;
@@ -65,27 +58,27 @@ static void lcd1602_display_measurements(int32_t temperature, uint32_t pressure,
     const int32_t t_frac = (temperature % 100) / 10;
 
     // First line: T:xx.xC H:xxx%
-    lcd1602_put_cursor(0, 0);
-    lcd1602_put_str("T:");
-    lcd1602_put_int(t_int);
-    lcd1602_put_str(".");
-    lcd1602_put_int(t_frac < 0 ? -t_frac : t_frac);
-    lcd1602_put_str("C H:");
-    lcd1602_put_int(humidity / 1024);
-    lcd1602_put_str("%");
+    OK_OR_PROPAGATE(lcd1602_put_cursor(0, 0));
+    OK_OR_PROPAGATE(lcd1602_put_str("T:"));
+    OK_OR_PROPAGATE(lcd1602_put_int(t_int));
+    OK_OR_PROPAGATE(lcd1602_put_str("."));
+    OK_OR_PROPAGATE(lcd1602_put_int(t_frac < 0 ? -t_frac : t_frac));
+    OK_OR_PROPAGATE(lcd1602_put_str("C H:"));
+    OK_OR_PROPAGATE(lcd1602_put_int(humidity / 1024));
+    OK_OR_PROPAGATE(lcd1602_put_str("%"));
     // Second line: P:xxxx.xx hPa
-    lcd1602_put_cursor(1, 0);
-    lcd1602_put_str("P:");
-    lcd1602_put_int(pa_int);
-    pa_frac < 10 ? lcd1602_put_str(".0") : lcd1602_put_str(".");
-    lcd1602_put_int(pa_frac);
-    lcd1602_put_str(" hPa");
+    OK_OR_PROPAGATE(lcd1602_put_cursor(1, 0));
+    OK_OR_PROPAGATE(lcd1602_put_str("P:"));
+    OK_OR_PROPAGATE(lcd1602_put_int(pa_int));
+    OK_OR_PROPAGATE(pa_frac < 10 ? lcd1602_put_str(".0") : lcd1602_put_str("."));
+    OK_OR_PROPAGATE(lcd1602_put_int(pa_frac));
+    OK_OR_PROPAGATE(lcd1602_put_str(" hPa"));
+
+    return OK;
 }
 
 static Result init_peripherals(uint8_t *bme280_addr, bme280_calib_data_t *calib_data)
 {
-    Result r;
-
     uart_init();
     // The following ANSI escape code clears the terminal screen.
     // Note: Not all UART terminal programs support ANSI escape codes.
@@ -96,28 +89,20 @@ static Result init_peripherals(uint8_t *bme280_addr, bme280_calib_data_t *calib_
     uart_print_str("SysTick initialized\r\n");
 
     // Init I2C1 without remap (SCL: PB6, SDA: PB7)
-    r = i2c1_init(0);
-    if (r != OK)
-        return r;
+    OK_OR_PROPAGATE(i2c1_init(1));
     uart_print_str("I2C1 initialized (no remap)\r\n");
 
     *bme280_addr = bme280_i2c_address(0); // SDO is grounded, change to 1 if SDO is connected to VDDIO
     bme280_set_i2c_instance(I2C1);
-    r = bme280_init(*bme280_addr);
-    if (r != OK)
-        return r;
+    OK_OR_PROPAGATE(bme280_init(*bme280_addr));
     uart_print_str("--- BME280 Initialized\r\n");
     uart_print_str("--- Reading Calibration Data...");
-    r = bme280_get_calib(calib_data, *bme280_addr);
-    if (r != OK)
-        return r;
+    OK_OR_PROPAGATE(bme280_get_calib(calib_data, *bme280_addr));
     uart_print_str("Done.\r\n");
 
     // Init LCD1602
     lcd1602_set_i2c_instance(I2C1); // If using I2C2, be sure to initialize it using the `i2c2_init` function
-    r = lcd1602_init();
-    if (r != OK)
-        return r;
+    OK_OR_PROPAGATE(lcd1602_init());
     uart_print_str("--- LCD1602 initialized\r\n");
 
     return OK;
@@ -126,49 +111,36 @@ static Result init_peripherals(uint8_t *bme280_addr, bme280_calib_data_t *calib_
 #ifdef BME280_NORMAL_MODE
 static void bme280_main_loop(const bme280_calib_data_t *calib_data, uint8_t bme280_addr)
 {
-    Result r;
     int32_t temperature;
     uint32_t pressure, humidity;
 
     while (1)
     {
-        r = bme280_read_measurements(&temperature, &pressure, &humidity, calib_data, bme280_addr);
-        if (r != OK)
-        {
-            display_error_and_halt(r);
-            return;
-        }
+        OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, calib_data, bme280_addr), display_error_and_halt);
         uart_display_measurements(temperature, pressure, humidity);
+        OK_OR(lcd1602_set_backlight(1), display_error_and_halt);
+        OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), display_error_and_halt);
         delay_ms(5000);
+        OK_OR(lcd1602_set_backlight(0), display_error_and_halt); // Turn off backlight
+        delay_ms(25000);
     }
 }
 #else
 static void bme280_main_loop(const bme280_calib_data_t *calib_data, uint8_t bme280_addr)
 {
-    Result r;
     int32_t temperature;
     uint32_t pressure, humidity;
     uint8_t ctrl_meas = BME280_CTRL_MEAS_OSRS_P_x16 | BME280_CTRL_MEAS_OSRS_T_x16;
 
     while (1)
     {
-        r = bme280_trigger_forced_mode(bme280_addr, &ctrl_meas); // Trigger measurement
-        if (r != OK)
-        {
-            display_error_and_halt(r);
-            return;
-        }
-        r = bme280_read_measurements(&temperature, &pressure, &humidity, calib_data, bme280_addr);
-        if (r != OK)
-        {
-            display_error_and_halt(r);
-            return;
-        }
+        OK_OR(bme280_trigger_forced_mode(bme280_addr, &ctrl_meas), display_error_and_halt); // Trigger measurement
+        OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, calib_data, bme280_addr), display_error_and_halt);
         uart_display_measurements(temperature, pressure, humidity);
-        lcd1602_set_backlight(1);
-        lcd1602_display_measurements(temperature, pressure, humidity);
+        OK_OR(lcd1602_set_backlight(1), display_error_and_halt);
+        OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), display_error_and_halt);
         delay_ms(10000); // Keep backlight for 10 seconds when a new measurement is displayed
-        lcd1602_set_backlight(0);
+        OK_OR(lcd1602_set_backlight(0), display_error_and_halt);
         delay_ms(50000); // Dim screen
     }
 }
@@ -176,16 +148,11 @@ static void bme280_main_loop(const bme280_calib_data_t *calib_data, uint8_t bme2
 
 int main(void)
 {
-    Result r;
     uint8_t bme280_addr;
     bme280_calib_data_t calib_data;
 
-    r = init_peripherals(&bme280_addr, &calib_data);
-    if (r != OK)
-        return display_error_and_halt(r);
-    r = display_welcome_message();
-    if (r != OK)
-        return display_error_and_halt(r);
+    OK_OR(init_peripherals(&bme280_addr, &calib_data), display_error_and_halt);
+    OK_OR(display_welcome_message(), display_error_and_halt);
 
     bme280_main_loop(&calib_data, bme280_addr);
 

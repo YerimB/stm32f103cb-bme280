@@ -4,6 +4,7 @@
 #include "stm32f103xb.h"
 #include "result.h"
 
+#define BME280_ID 0x60
 #define BME280_REG_ID 0xD0
 #define BME280_REG_RESET 0xE0
 #define BME280_REG_CTRL_HUM 0xF2
