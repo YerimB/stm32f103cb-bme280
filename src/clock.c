@@ -19,16 +19,6 @@ uint32_t get_systick_count(void)
     return systick_count;
 }
 
-uint32_t get_ms_count(void)
-{
-    static int32_t ticks_per_ms = -1;
-
-    if (ticks_per_ms == -1)
-        ticks_per_ms = (sysclk_frequency() / 1000) - 1;
-
-    return systick_count / ticks_per_ms;
-}
-
 static uint32_t min(const uint32_t a, const uint32_t b)
 {
     return a > b ? b : a;

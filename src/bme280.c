@@ -247,11 +247,11 @@ static Result bme280_configure(void)
 static Result bme280_wait_for_measurement(void)
 {
     uint8_t status;
-    uint32_t tp = get_ms_count();
+    uint32_t tp = get_systick_count();
 
     do
     {
-        if ((get_ms_count() - tp) > 100)
+        if ((get_systick_count() - tp) > 100)
         {
             return SENSOR_INVALID_READ;
         }

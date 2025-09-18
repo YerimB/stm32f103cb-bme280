@@ -51,21 +51,21 @@ void spi1_init(const uint8_t remap, const uint32_t target_baudrate)
 
 Result spi_write_byte(SPI_TypeDef *spi, const uint8_t data)
 {
-    uint32_t tp = get_ms_count();
+    uint32_t tp = get_systick_count();
 
     while (!(spi->SR & SPI_SR_TXE)) // Wait for TX buffer empty
     {
-        if (get_ms_count() - tp > SPI_TIMEOUT_MS)
+        if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;
     }
 
     spi->DR = data; // Write data
     spi_read_dummy_byte(spi);
 
-    tp = get_ms_count();
+    tp = get_systick_count();
     while (spi->SR & SPI_SR_BSY) // Wait for not busy (end of transfer)
     {
-        if (get_ms_count() - tp > SPI_TIMEOUT_MS)
+        if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;
     }
 
@@ -84,19 +84,19 @@ Result spi_read_byte(SPI_TypeDef *spi, uint8_t *data)
 {
     OK_OR_PROPAGATE(spi_write_dummy_byte(spi));
 
-    uint32_t tp = get_ms_count();
+    uint32_t tp = get_systick_count();
     while (!(spi->SR & SPI_SR_RXNE)) // Wait for RX not empty
     {
-        if (get_ms_count() - tp > SPI_TIMEOUT_MS)
+        if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;
     }
 
     *data = spi->DR; // Read data
 
-    tp = get_ms_count();
+    tp = get_systick_count();
     while (spi->SR & SPI_SR_BSY) // Wait for not busy
     {
-        if (get_ms_count() - tp > SPI_TIMEOUT_MS)
+        if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;
     }
 
@@ -113,19 +113,19 @@ Result spi_read_bytes(SPI_TypeDef *spi, uint8_t *data, uint32_t count)
 
 static Result spi_write_dummy_byte(SPI_TypeDef *spi_instance)
 {
-    uint32_t tp = get_ms_count();
+    uint32_t tp = get_systick_count();
 
     while (!(spi_instance->SR & SPI_SR_TXE)) // Wait for TX buffer empty
     {
-        if (get_ms_count() - tp > SPI_TIMEOUT_MS)
+        if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;
     }
     spi_instance->DR = 0xFF; // Dummy write to trigger SCK for slave to write
 
-    tp = get_ms_count();
+    tp = get_systick_count();
     while (SPI1->SR & SPI_SR_BSY) // Wait for not busy (end of transfer)
     {
-        if (get_ms_count() - tp > SPI_TIMEOUT_MS)
+        if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;
     }
 
@@ -134,19 +134,19 @@ static Result spi_write_dummy_byte(SPI_TypeDef *spi_instance)
 
 static Result spi_read_dummy_byte(SPI_TypeDef *spi_instance)
 {
-    uint32_t tp = get_ms_count();
+    uint32_t tp = get_systick_count();
 
     while (!(spi_instance->SR & SPI_SR_RXNE)) // Wait for RX buffer not empty
     {
-        if (get_ms_count() - tp > SPI_TIMEOUT_MS)
+        if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;
     }
     spi_instance->DR; // Dummy read to clear data register
 
-    tp = get_ms_count();
+    tp = get_systick_count();
     while (SPI1->SR & SPI_SR_BSY) // Wait for not busy (end of transfer)
     {
-        if (get_ms_count() - tp > SPI_TIMEOUT_MS)
+        if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;
     }
 

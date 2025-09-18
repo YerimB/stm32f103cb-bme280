@@ -87,11 +87,11 @@ static Result i2c_wait_for_bus(I2C_TypeDef *i2c)
     if (!i2c)
         return INVALID_PARAMETER;
 
-    const uint32_t tp = get_ms_count();
+    const uint32_t tp = get_systick_count();
 
     while (i2c->SR2 & I2C_SR2_BUSY)
     {
-        if ((get_ms_count() - tp) > I2C_TIMEOUT_MS)
+        if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
             return I2C_TIMEOUT_ERR;
     }
     return OK;
@@ -107,15 +107,15 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
     uint32_t tp;
 
     i2c->CR1 |= I2C_CR1_START; // Start/Restart communication
-    tp = get_ms_count();
+    tp = get_systick_count();
     while (!(i2c->SR1 & I2C_SR1_SB)) // Wait for confirmation
     {
-        if ((get_ms_count() - tp) > I2C_TIMEOUT_MS)
+        if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
             return I2C_TIMEOUT_ERR;
     }
 
     i2c->DR = (slave_addr << 1); // Send slave address (7 bits) followed by 0 (write mode)
-    tp = get_ms_count();
+    tp = get_systick_count();
     while (!(i2c->SR1 & I2C_SR1_ADDR)) // Wait for end of address transmission
     {
         if (i2c->SR1 & I2C_SR1_AF)
@@ -123,7 +123,7 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
             i2c->SR1 &= ~I2C_SR1_AF;
             return I2C_NACK;
         }
-        if ((get_ms_count() - tp) > I2C_TIMEOUT_MS)
+        if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
             return I2C_TIMEOUT_ERR;
     }
     (void)i2c->SR2; // Clear ADDR by reading in sequence SR1 -> SR2
@@ -131,7 +131,7 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
     for (uint32_t i = 0; i < size; ++i)
     {
         i2c->DR = data[i]; // Send data
-        tp = get_ms_count();
+        tp = get_systick_count();
         while (!(i2c->SR1 & I2C_SR1_TXE)) // Wait for data to be received by slave
         {
             if (i2c->SR1 & I2C_SR1_AF)
@@ -139,7 +139,7 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
                 i2c->SR1 &= ~I2C_SR1_AF;
                 return I2C_NACK;
             }
-            if ((get_ms_count() - tp) > I2C_TIMEOUT_MS)
+            if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
                 return I2C_TIMEOUT_ERR;
         }
     }
@@ -168,15 +168,15 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
     uint32_t tp;
 
     i2c->CR1 |= I2C_CR1_START; // Start/Restart communication
-    tp = get_ms_count();
+    tp = get_systick_count();
     while (!(i2c->SR1 & I2C_SR1_SB)) // Wait for confirmation
     {
-        if ((get_ms_count() - tp) > I2C_TIMEOUT_MS)
+        if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
             return I2C_TIMEOUT_ERR;
     }
 
     i2c->DR = (slave_addr << 1) | 1; // Send slave address (7 bits) followed by 1 (read mode)
-    tp = get_ms_count();
+    tp = get_systick_count();
     while (!(i2c->SR1 & I2C_SR1_ADDR)) // Wait for end of address transmission
     {
         if (i2c->SR1 & I2C_SR1_AF)
@@ -184,7 +184,7 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
             i2c->SR1 &= ~I2C_SR1_AF;
             return I2C_NACK;
         }
-        if (get_ms_count() - tp > I2C_TIMEOUT_MS)
+        if (get_systick_count() - tp > I2C_TIMEOUT_MS)
             return I2C_TIMEOUT_ERR;
     }
     (void)i2c->SR2; // Clear ADDR by reading in sequence SR1 -> SR2
@@ -192,10 +192,10 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
     if (size == 1)
     {
         i2c->CR1 &= ~I2C_CR1_ACK;
-        tp = get_ms_count();
+        tp = get_systick_count();
         while (!(i2c->SR1 & I2C_SR1_RXNE))
         {
-            if (get_ms_count() - tp > I2C_TIMEOUT_MS)
+            if (get_systick_count() - tp > I2C_TIMEOUT_MS)
                 return I2C_TIMEOUT_ERR;
         }
         data[0] = i2c->DR;
@@ -207,10 +207,10 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
         {
             if (i == size - 1)
                 i2c->CR1 &= ~I2C_CR1_ACK; // Disable ACK on last byte (generates NACK => stops waiting for data)
-            tp = get_ms_count();
+            tp = get_systick_count();
             while (!(i2c->SR1 & I2C_SR1_RXNE))
             {
-                if (get_ms_count() - tp > I2C_TIMEOUT_MS)
+                if (get_systick_count() - tp > I2C_TIMEOUT_MS)
                     return I2C_TIMEOUT_ERR;
             }
             data[i] = i2c->DR;
