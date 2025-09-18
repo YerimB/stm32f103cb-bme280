@@ -10,6 +10,7 @@
 #define LSE_hz 32768       // 32.768kHz
 
 uint32_t get_systick_count(void);
+uint32_t get_ms_count(void);
 uint32_t sysclk_frequency(void);
 uint32_t cpu_clock_frequency(void);
 void systick_init(void);

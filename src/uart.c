@@ -72,3 +72,28 @@ void uart_print_int(int32_t n)
     while (i > 0)
         uart_send_char(buffer[--i]);
 }
+
+void uart_print_hex(int32_t n)
+{
+    if (n == 0)
+    {
+        uart_print_str("0x0");
+        return;
+    }
+
+    char buffer[8];
+    uint8_t i = 0;
+    uint32_t un = (uint32_t)n;
+
+    while (un > 0)
+    {
+        uint8_t nibble = un & 0xF;
+
+        buffer[i++] = nibble < 10 ? '0' + nibble : 'A' + (nibble - 10);
+        un /= 16;
+    }
+
+    uart_print_str("0x");
+    while (i > 0)
+        uart_send_char(buffer[--i]);
+}

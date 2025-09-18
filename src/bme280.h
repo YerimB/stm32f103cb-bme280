@@ -4,6 +4,31 @@
 #include "stm32f103xb.h"
 #include "result.h"
 
+// --- Communication Selection ---
+#ifdef BME280_USE_I2C
+
+#include "i2c.h"
+
+#ifdef BME280_SDO_LOW
+#define BME280_I2C_ADDR 0x76
+#else // BME280_SDO_HIGH
+#define BME280_I2C_ADDR 0x77
+#endif
+
+void bme280_set_i2c_instance(I2C_TypeDef *i2c_instance);
+
+#else // BME280_USE_SPI
+
+#include "spi.h"
+
+#define BME280_SPI_TARGET_BAUDRATE 1000000
+#define BME280_SPI_MAX_BAUDRATE 10000000
+#define BME280_SPI_WRITE_MASK 0x7FU // Usage: `value & BME280_SPI_WRITE_MASK`
+#define BME280_SPI_READ_MASK 0x80U  // Usage: `value | BME280_SPI_READ_MASK`
+
+#endif
+
+// --- Register Addresses ---
 #define BME280_ID 0x60
 #define BME280_REG_ID 0xD0
 #define BME280_REG_RESET 0xE0
@@ -12,6 +37,7 @@
 #define BME280_REG_CTRL_MEAS 0xF4
 #define BME280_REG_CONFIG 0xF5
 
+// --- Register Bitfields ---
 #define BME280_CTRL_HUM_OSRS_H_SHIFT 0U
 #define BME280_CTRL_HUM_OSRS_H_SKIP (0U << BME280_CTRL_HUM_OSRS_H_SHIFT)
 #define BME280_CTRL_HUM_OSRS_H_x1 (1U << BME280_CTRL_HUM_OSRS_H_SHIFT)
@@ -27,6 +53,7 @@
 #define BME280_CTRL_MEAS_OSRS_T_x4 (3U << BME280_CTRL_MEAS_OSRS_T_SHIFT)
 #define BME280_CTRL_MEAS_OSRS_T_x8 (4U << BME280_CTRL_MEAS_OSRS_T_SHIFT)
 #define BME280_CTRL_MEAS_OSRS_T_x16 (5U << BME280_CTRL_MEAS_OSRS_T_SHIFT)
+
 #define BME280_CTRL_MEAS_OSRS_P_SHIFT 2U
 #define BME280_CTRL_MEAS_OSRS_P_SKIP (0U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
 #define BME280_CTRL_MEAS_OSRS_P_x1 (1U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
@@ -34,6 +61,7 @@
 #define BME280_CTRL_MEAS_OSRS_P_x4 (3U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
 #define BME280_CTRL_MEAS_OSRS_P_x8 (4U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
 #define BME280_CTRL_MEAS_OSRS_P_x16 (5U << BME280_CTRL_MEAS_OSRS_P_SHIFT)
+
 #define BME280_CTRL_MEAS_MODE_SHIFT 0U
 #define BME280_CTRL_MEAS_MODE_SLEEP (0U << BME280_CTRL_MEAS_MODE_SHIFT)
 #define BME280_CTRL_MEAS_MODE_FORCED (1U << BME280_CTRL_MEAS_MODE_SHIFT)
@@ -48,18 +76,22 @@
 #define BME280_CONFIG_TIME_STANDBY_1000MS (5U << BME280_CONFIG_TIME_STANDBY_SHIFT)
 #define BME280_CONFIG_TIME_STANDBY_10MS (6U << BME280_CONFIG_TIME_STANDBY_SHIFT)
 #define BME280_CONFIG_TIME_STANDBY_20MS (7U << BME280_CONFIG_TIME_STANDBY_SHIFT)
+
 #define BME280_CONFIG_FILTER_SHIFT 2U
 #define BME280_CONFIG_FILTER_OFF (0U << BME280_CONFIG_FILTER_SHIFT)
 #define BME280_CONFIG_FILTER_x2 (1U << BME280_CONFIG_FILTER_SHIFT)
 #define BME280_CONFIG_FILTER_x4 (2U << BME280_CONFIG_FILTER_SHIFT)
 #define BME280_CONFIG_FILTER_x8 (3U << BME280_CONFIG_FILTER_SHIFT)
 #define BME280_CONFIG_FILTER_x16 (4U << BME280_CONFIG_FILTER_SHIFT)
+
 #define BME280_CONFIG_SPI3W_EN_SHIFT 0U
 #define BME280_CONFIG_SPI3W_EN_DISABLE (0U << BME280_CONFIG_SPI3W_EN_SHIFT)
 #define BME280_CONFIG_SPI3W_EN_ENABLE (1U << BME280_CONFIG_SPI3W_EN_SHIFT)
 
+// --- Commands ---
 #define BME280_RESET_CMD 0xB6
 
+// --- Calibration Data Structure ---
 typedef struct bme280_calib_data
 {
     uint16_t dig_T1;
@@ -82,14 +114,13 @@ typedef struct bme280_calib_data
     int8_t dig_H6;
 } bme280_calib_data_t;
 
-void bme280_set_i2c_instance(I2C_TypeDef *i2c_instance);
-uint8_t bme280_i2c_address(const uint8_t sdo);
-Result bme280_init(const uint8_t bme280_addr);
-Result bme280_write_register(const uint8_t reg, const uint8_t value, const uint8_t slave_addr);
-Result bme280_read_registers(const uint8_t reg, uint8_t *data, const uint8_t len, const uint8_t slave_addr);
-Result bme280_soft_reset(const uint8_t slave_addr);
-Result bme280_get_calib(bme280_calib_data_t *calib, uint8_t slave_addr);
-Result bme280_trigger_forced_mode(const uint8_t slave_addr, uint8_t *ctrl_meas);
-Result bme280_read_measurements(int32_t *temp, uint32_t *press, uint32_t *hum, const bme280_calib_data_t *calib, uint8_t slave_addr);
+// --- API Functions ---
+Result bme280_init(void);
+Result bme280_write_register(const uint8_t reg, const uint8_t value);
+Result bme280_read_registers(const uint8_t reg, uint8_t *data, uint32_t len);
+Result bme280_soft_reset(void);
+Result bme280_get_calib(bme280_calib_data_t *calib);
+Result bme280_trigger_forced_mode(uint8_t *ctrl_meas);
+Result bme280_read_measurements(int32_t *temp, uint32_t *press, uint32_t *hum, const bme280_calib_data_t *calib);
 
 #endif // BME280_H

@@ -6,9 +6,11 @@ typedef enum
     OK = 0, // Success
     // I2C Errors
     I2C_INIT_FAILED, // I2C initialization error
-    I2C_TIMEOUT,     // I2C operation timed out
+    I2C_TIMEOUT_ERR, // I2C operation timed out
     I2C_NACK,        // I2C address NACK received
     I2C_BUS_ERROR,   // I2C bus error (BERR)
+    // SPI Errors
+    SPI_TIMEOUT_ERR,
     // Sensor Errors (here BME280)
     SENSOR_NOT_DETECTED, // Sensor ID read failed
     SENSOR_INVALID_READ, // Invalid sensor data read

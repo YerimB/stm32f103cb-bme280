@@ -1,7 +1,6 @@
 #include "stm32f103xb.h"
 #include "clock.h"
 #include "uart.h"
-#include "i2c.h"
 #include "bme280.h"
 #include "lcd1602.h"
 
@@ -77,7 +76,7 @@ static Result lcd1602_display_measurements(int32_t temperature, uint32_t pressur
     return OK;
 }
 
-static Result init_peripherals(uint8_t *bme280_addr, bme280_calib_data_t *calib_data)
+static Result init_peripherals(bme280_calib_data_t *calib_data)
 {
     uart_init();
     // The following ANSI escape code clears the terminal screen.
@@ -88,20 +87,23 @@ static Result init_peripherals(uint8_t *bme280_addr, bme280_calib_data_t *calib_
     systick_init();
     uart_print_str("SysTick initialized\r\n");
 
-    // Init I2C1 without remap (SCL: PB6, SDA: PB7)
-    OK_OR_PROPAGATE(i2c1_init(1));
+    OK_OR_PROPAGATE(i2c1_init(0)); // Init I2C1 without remap (SCL: PB6, SDA: PB7)
     uart_print_str("I2C1 initialized (no remap)\r\n");
 
-    *bme280_addr = bme280_i2c_address(0); // SDO is grounded, change to 1 if SDO is connected to VDDIO
+    // Init BME280
+#ifdef BME280_USE_I2C
     bme280_set_i2c_instance(I2C1);
-    OK_OR_PROPAGATE(bme280_init(*bme280_addr));
-    uart_print_str("--- BME280 Initialized\r\n");
-    uart_print_str("--- Reading Calibration Data...");
-    OK_OR_PROPAGATE(bme280_get_calib(calib_data, *bme280_addr));
+#else
+    spi1_init(0, BME280_SPI_TARGET_BAUDRATE);
+    uart_print_str("SPI1 initialized (no remap)\r\n");
+#endif
+    OK_OR_PROPAGATE(bme280_init());
+    uart_print_str("--- BME280 Initialized. Reading Calibration Data...");
+    OK_OR_PROPAGATE(bme280_get_calib(calib_data));
     uart_print_str("Done.\r\n");
 
     // Init LCD1602
-    lcd1602_set_i2c_instance(I2C1); // If using I2C2, be sure to initialize it using the `i2c2_init` function
+    lcd1602_set_i2c_instance(I2C1);
     OK_OR_PROPAGATE(lcd1602_init());
     uart_print_str("--- LCD1602 initialized\r\n");
 
@@ -109,14 +111,14 @@ static Result init_peripherals(uint8_t *bme280_addr, bme280_calib_data_t *calib_
 }
 
 #ifdef BME280_NORMAL_MODE
-static void bme280_main_loop(const bme280_calib_data_t *calib_data, uint8_t bme280_addr)
+static void bme280_main_loop(const bme280_calib_data_t *calib_data)
 {
     int32_t temperature;
     uint32_t pressure, humidity;
 
     while (1)
     {
-        OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, calib_data, bme280_addr), display_error_and_halt);
+        OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, calib_data), display_error_and_halt);
         uart_display_measurements(temperature, pressure, humidity);
         OK_OR(lcd1602_set_backlight(1), display_error_and_halt);
         OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), display_error_and_halt);
@@ -126,7 +128,7 @@ static void bme280_main_loop(const bme280_calib_data_t *calib_data, uint8_t bme2
     }
 }
 #else
-static void bme280_main_loop(const bme280_calib_data_t *calib_data, uint8_t bme280_addr)
+static void bme280_main_loop(const bme280_calib_data_t *calib_data)
 {
     int32_t temperature;
     uint32_t pressure, humidity;
@@ -134,8 +136,8 @@ static void bme280_main_loop(const bme280_calib_data_t *calib_data, uint8_t bme2
 
     while (1)
     {
-        OK_OR(bme280_trigger_forced_mode(bme280_addr, &ctrl_meas), display_error_and_halt); // Trigger measurement
-        OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, calib_data, bme280_addr), display_error_and_halt);
+        OK_OR(bme280_trigger_forced_mode(&ctrl_meas), display_error_and_halt); // Trigger measurement
+        OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, calib_data), display_error_and_halt);
         uart_display_measurements(temperature, pressure, humidity);
         OK_OR(lcd1602_set_backlight(1), display_error_and_halt);
         OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), display_error_and_halt);
@@ -148,13 +150,12 @@ static void bme280_main_loop(const bme280_calib_data_t *calib_data, uint8_t bme2
 
 int main(void)
 {
-    uint8_t bme280_addr;
     bme280_calib_data_t calib_data;
 
-    OK_OR(init_peripherals(&bme280_addr, &calib_data), display_error_and_halt);
+    OK_OR(init_peripherals(&calib_data), display_error_and_halt);
     OK_OR(display_welcome_message(), display_error_and_halt);
 
-    bme280_main_loop(&calib_data, bme280_addr);
+    bme280_main_loop(&calib_data);
 
     return 0;
 }
