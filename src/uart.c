@@ -16,8 +16,8 @@ void uart_init(void)
     RCC->APB2ENR |= RCC_APB2ENR_USART1EN | RCC_APB2ENR_IOPAEN; // Enable clocks for UART1 and GPIOA
 
     // Set PA9 (TX) as Alternate function push-pull
-    GPIOA->CRH &= ~(0xF << 4);                        // Clear config for PA9
-    GPIOA->CRH |= GPIO_CRH_CNF9_1 | GPIO_CRH_MODE9_1; // Alternate Function Push-Pull, 2MHz (bits 7:4 set to '1010')
+    GPIOA->CRH &= ~(GPIO_CRH_CNF9_Msk | GPIO_CRH_MODE9_Msk); // Clear config for PA9
+    GPIOA->CRH |= GPIO_CRH_CNF9_1 | GPIO_CRH_MODE9_1;        // Alternate Function Push-Pull, 2MHz (bits 7:4 set to '1010')
 
     // Set PA10 (RX) as Input floating (commented since I am not receiving anything for now)
     // GPIOA->CRH &= ~(0xF << 8);      // Clear config for PA10
@@ -26,7 +26,7 @@ void uart_init(void)
     // Set the baud rate register value
     USART1->BRR = div_to_BRR(sysclk_frequency(), UART_BAUDRATE);
 
-    // Enable UART (UE bit) & Transmitter (TE) (Not receiving for now, commenter)
+    // Enable UART (UE bit) & Transmitter (TE) (Not receiving for now, commented)
     USART1->CR1 |= USART_CR1_UE | USART_CR1_TE; // | USART_CR1_RE;
 }
 

@@ -123,7 +123,7 @@ static Result spi_write_dummy_byte(SPI_TypeDef *spi_instance)
     spi_instance->DR = 0xFF; // Dummy write to trigger SCK for slave to write
 
     tp = get_systick_count();
-    while (SPI1->SR & SPI_SR_BSY) // Wait for not busy (end of transfer)
+    while (spi_instance->SR & SPI_SR_BSY) // Wait for not busy (end of transfer)
     {
         if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;
@@ -144,7 +144,7 @@ static Result spi_read_dummy_byte(SPI_TypeDef *spi_instance)
     spi_instance->DR; // Dummy read to clear data register
 
     tp = get_systick_count();
-    while (SPI1->SR & SPI_SR_BSY) // Wait for not busy (end of transfer)
+    while (spi_instance->SR & SPI_SR_BSY) // Wait for not busy (end of transfer)
     {
         if (get_systick_count() - tp > SPI_TIMEOUT_MS)
             return SPI_TIMEOUT_ERR;

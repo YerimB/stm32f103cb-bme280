@@ -91,6 +91,8 @@ void bme280_set_i2c_instance(I2C_TypeDef *i2c_instance);
 // --- Commands ---
 #define BME280_RESET_CMD 0xB6
 
+#define BME280_SOFT_RESET_DELAY_MS 3U
+
 // --- Calibration Data Structure ---
 typedef struct bme280_calib_data
 {

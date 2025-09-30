@@ -1,9 +1,15 @@
 #ifndef ERROR_H_
 #define ERROR_H_
 
-typedef enum
+typedef enum Result
 {
     OK = 0, // Success
+    // Clock errors
+    CLOCK_NOT_READY,
+    CLOCK_CONFIG_INVALID,
+    CLOCK_SW_FAILURE,
+    CLOCK_HSE_FAILURE,
+    CLOCK_ILLEGAL_DISABLE,
     // I2C Errors
     I2C_INIT_FAILED, // I2C initialization error
     I2C_TIMEOUT_ERR, // I2C operation timed out
