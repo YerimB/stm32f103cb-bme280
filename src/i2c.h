@@ -4,8 +4,6 @@
 #include "stm32f103xb.h"
 #include "result.h"
 
-#define NULL ((void *)0)
-
 #define I2C_MAX_FREQUENCY_Sm 100000 // 100kHz
 #define I2C_TIMEOUT_MS 100          // 100ms
 

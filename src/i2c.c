@@ -5,10 +5,11 @@ Result i2c1_init(const int remap)
 {
     // Enable clock for GPIOB & I2C1
     RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
-    RCC->APB2ENR |= (RCC_APB2ENR_AFIOEN | RCC_APB2ENR_IOPBEN);
+    RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
 
     if (remap)
     {
+        RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
         AFIO->MAPR |= AFIO_MAPR_I2C1_REMAP;          // Enable remap
         GPIOB->CRH &= ~(0xFF << GPIO_CRH_MODE8_Pos); // Reset values for GPIOB_CRL pin 8 & 9
         // Set GPIO 8 & 9 to Alternate Function Open Drain at 10MHz (Needed for I2C protocol)
@@ -91,9 +92,7 @@ static Result i2c_wait_for_bus(I2C_TypeDef *i2c)
     while (i2c->SR2 & I2C_SR2_BUSY)
     {
         if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-        {
-            return I2C_TIMEOUT;
-        }
+            return I2C_TIMEOUT_ERR;
     }
     return OK;
 }
@@ -112,9 +111,7 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
     while (!(i2c->SR1 & I2C_SR1_SB)) // Wait for confirmation
     {
         if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-        {
-            return I2C_TIMEOUT;
-        }
+            return I2C_TIMEOUT_ERR;
     }
 
     i2c->DR = (slave_addr << 1); // Send slave address (7 bits) followed by 0 (write mode)
@@ -127,7 +124,7 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
             return I2C_NACK;
         }
         if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-            return I2C_TIMEOUT;
+            return I2C_TIMEOUT_ERR;
     }
     (void)i2c->SR2; // Clear ADDR by reading in sequence SR1 -> SR2
 
@@ -143,7 +140,7 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
                 return I2C_NACK;
             }
             if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-                return I2C_TIMEOUT;
+                return I2C_TIMEOUT_ERR;
         }
     }
 
@@ -175,7 +172,7 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
     while (!(i2c->SR1 & I2C_SR1_SB)) // Wait for confirmation
     {
         if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-            return I2C_TIMEOUT;
+            return I2C_TIMEOUT_ERR;
     }
 
     i2c->DR = (slave_addr << 1) | 1; // Send slave address (7 bits) followed by 1 (read mode)
@@ -187,8 +184,8 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
             i2c->SR1 &= ~I2C_SR1_AF;
             return I2C_NACK;
         }
-        if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-            return I2C_TIMEOUT;
+        if (get_systick_count() - tp > I2C_TIMEOUT_MS)
+            return I2C_TIMEOUT_ERR;
     }
     (void)i2c->SR2; // Clear ADDR by reading in sequence SR1 -> SR2
 
@@ -199,7 +196,7 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
         while (!(i2c->SR1 & I2C_SR1_RXNE))
         {
             if (get_systick_count() - tp > I2C_TIMEOUT_MS)
-                return I2C_TIMEOUT;
+                return I2C_TIMEOUT_ERR;
         }
         data[0] = i2c->DR;
     }
@@ -214,7 +211,7 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
             while (!(i2c->SR1 & I2C_SR1_RXNE))
             {
                 if (get_systick_count() - tp > I2C_TIMEOUT_MS)
-                    return I2C_TIMEOUT;
+                    return I2C_TIMEOUT_ERR;
             }
             data[i] = i2c->DR;
         }
