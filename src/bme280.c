@@ -50,7 +50,7 @@ Result bme280_init(void)
 Result bme280_write_register(const uint8_t reg, const uint8_t value)
 {
 #ifdef BME280_USE_I2C
-    return i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, (uint8_t[2]){reg, value}, 2, (I2C_ops_params_t){0, 1});
+    return i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, (uint8_t[2]){reg, value}, 2, (I2C_ops_params_t){.restart = 0, .generate_stop = 1});
 #else
     const uint8_t reg_cmd = reg & BME280_SPI_WRITE_MASK;
 
@@ -64,8 +64,8 @@ Result bme280_write_register(const uint8_t reg, const uint8_t value)
 Result bme280_read_registers(const uint8_t reg, uint8_t *data, uint32_t len)
 {
 #ifdef BME280_USE_I2C
-    OK_OR_PROPAGATE(i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, &reg, 1, (I2C_ops_params_t){0, 0})); // Write register address to read from
-    return i2c_read(bme280_i2c_instance, BME280_I2C_ADDR, data, len, (I2C_ops_params_t){1, 1});          // Read data
+    OK_OR_PROPAGATE(i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, &reg, 1, (I2C_ops_params_t){.restart = 0, .generate_stop = 0})); // Write register address to read from
+    return i2c_read(bme280_i2c_instance, BME280_I2C_ADDR, data, len, (I2C_ops_params_t){.restart = 1, .generate_stop = 1});          // Read data
 #else
     const uint8_t reg_cmd = reg | BME280_SPI_READ_MASK;
 
@@ -80,7 +80,7 @@ Result bme280_read_registers(const uint8_t reg, uint8_t *data, uint32_t len)
 Result bme280_soft_reset()
 {
 #ifdef BME280_USE_I2C
-    OK_OR_PROPAGATE(i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, (uint8_t[2]){BME280_REG_RESET, BME280_RESET_CMD}, 2, (I2C_ops_params_t){0, 1}));
+    OK_OR_PROPAGATE(i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, (uint8_t[2]){BME280_REG_RESET, BME280_RESET_CMD}, 2, (I2C_ops_params_t){.restart = 0, .generate_stop = 1}));
     delay_ms(BME280_SOFT_RESET_DELAY_MS);
 #else
     GPIOA->BSRR = GPIO_BSRR_BR4;
@@ -153,8 +153,8 @@ Result bme280_trigger_forced_mode(uint8_t *ctrl_meas)
         const uint8_t reg = BME280_REG_CTRL_MEAS;
 
 #ifdef BME280_USE_I2C
-        OK_OR_PROPAGATE(i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, &reg, 1, (I2C_ops_params_t){0, 0}));
-        OK_OR_PROPAGATE(i2c_read(bme280_i2c_instance, BME280_I2C_ADDR, &ctrl_meas_forced, 1, (I2C_ops_params_t){1, 0}));
+        OK_OR_PROPAGATE(i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, &reg, 1, (I2C_ops_params_t){.restart = 0, .generate_stop = 0}));
+        OK_OR_PROPAGATE(i2c_read(bme280_i2c_instance, BME280_I2C_ADDR, &ctrl_meas_forced, 1, (I2C_ops_params_t){.restart = 1, .generate_stop = 0}));
 #else
         OK_OR_PROPAGATE(bme280_read_registers(reg, &ctrl_meas_forced, 1));
 #endif
@@ -167,7 +167,7 @@ Result bme280_trigger_forced_mode(uint8_t *ctrl_meas)
     }
 
 #ifdef BME280_USE_I2C
-    OK_OR_PROPAGATE(i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, (uint8_t[2]){BME280_REG_CTRL_MEAS, ctrl_meas_forced}, 2, (I2C_ops_params_t){1, 1}));
+    OK_OR_PROPAGATE(i2c_write(bme280_i2c_instance, BME280_I2C_ADDR, (uint8_t[2]){BME280_REG_CTRL_MEAS, ctrl_meas_forced}, 2, (I2C_ops_params_t){.restart = 1, .generate_stop = 1}));
 #else
     OK_OR_PROPAGATE(bme280_write_register(BME280_REG_CTRL_MEAS, ctrl_meas_forced));
 #endif

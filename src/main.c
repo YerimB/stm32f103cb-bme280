@@ -79,8 +79,11 @@ static Result lcd1602_display_measurements(int32_t temperature, uint32_t pressur
 
 static Result init_sysclk()
 {
-    // uint8_t use_hse = 1, enable_pllxtpre = 0, pllmul = 9;
-    // clock_custom_config_t conf = {use_hse, enable_pllxtpre, pllmul};
+    // clock_custom_config_t conf = {
+    //     .use_hse = 1,
+    //     .enable_pllxtpre = 0,
+    //     .pllmul_factor = 9,
+    // };
     // OK_OR_PROPAGATE(sysclk_switch(CLOCK_CUSTOM, &conf));
     OK_OR_PROPAGATE(sysclk_switch(CLOCK_PLL_HSE_48MHz, 0x0));
     systick_init();
