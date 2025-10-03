@@ -10,6 +10,7 @@
 #define LSI_HZ 40000U                // 40kHz
 #define LSE_HZ 32768U                // 32.768kHz
 #define MCU_MAX_SYSCLK_HZ 72000000UL // MCU limit = 72MHz
+#define APB1_MAX_HZ 36000000U        // APB1 limit = 36MHz
 
 #define RCC_CFGR_SW_TIMEOUT 100U
 #define RCC_CFGR_PLLMUL_MIN_FACTOR 2U

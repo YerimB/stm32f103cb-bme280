@@ -4,6 +4,7 @@
 #include "bme280.h"
 #include "lcd1602.h"
 #include "integrated_led.h"
+#include "user_button.h"
 
 static int error_blink_halt(const Result r)
 {
@@ -171,10 +172,20 @@ static void bme280_main_loop(const bme280_calib_data_t *calib_data)
 }
 #endif
 
+void test(const uint16_t active)
+{
+    if (active)
+        uart_print_str("Triggered with status: HIGH\r\n");
+    else
+        uart_print_str("Triggered with status: LOW\r\n");
+}
+
 int main(void)
 {
     integrated_led_init();
     OK_OR(init_sysclk(), error_blink_halt);
+
+    enable_user_button((user_btn_trigger_config_t){.enable_rising = 1, .enable_falling = 1, .callback = test});
 
     bme280_calib_data_t calib_data;
 

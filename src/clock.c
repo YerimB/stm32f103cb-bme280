@@ -366,6 +366,8 @@ static Result pll_enable_internal(const uint8_t use_hse, const uint8_t enable_pl
                             pllmul;
 
     OK_OR_PROPAGATE(pll_disable_internal()); // Disable before configuring as per datasheet
+    if (estimated_frequency > APB1_MAX_HZ)   // APB1 runs at max 36MHz so if HCLK exceeds it, the prescaler must be >2.
+        RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_PPRE1_Msk) | RCC_CFGR_PPRE1_DIV2;
     FLASH->ACR = (FLASH->ACR & ~FLASH_ACR_LATENCY_Msk) | frequency_to_flash_acr_latency(estimated_frequency);
     RCC->CFGR = (RCC->CFGR & ~(RCC_CFGR_PLLSRC | RCC_CFGR_PLLXTPRE | RCC_CFGR_PLLMULL)) | config;
     RCC->CR |= RCC_CR_PLLON;
