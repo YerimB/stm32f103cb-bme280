@@ -22,12 +22,14 @@ void enable_user_button(const user_btn_trigger_config_t config)
     GPIOA->ODR &= ~GPIO_ODR_ODR0;                                                          // Pull-down
     last_pin_stable_state = GPIOA->IDR & GPIO_IDR_IDR0;                                    // Get initial pin state
     AFIO->EXTICR[0] = (AFIO->EXTICR[0] & ~AFIO_EXTICR1_EXTI0_Msk) | AFIO_EXTICR1_EXTI0_PA; // Set source input for EXTI0 to PA0
+
     if (config.callback)
         callback = config.callback;
     if (config.enable_rising)
         EXTI->RTSR |= EXTI_RTSR_TR0;
     if (config.enable_falling)
         EXTI->FTSR |= EXTI_FTSR_TR0;
+
     EXTI->IMR |= EXTI_IMR_IM0;
     NVIC_EnableIRQ(EXTI0_IRQn);
 
@@ -51,16 +53,18 @@ void disable_user_button(void)
 static void button_debounce_finished(void)
 {
     const uint8_t pin_state = (GPIOA->IDR & GPIO_IDR_IDR0);
+    const uint8_t ft_enabled = EXTI->FTSR & EXTI_FTSR_TR0;
+    const uint8_t rt_enabled = EXTI->RTSR & EXTI_RTSR_TR0;
 
-    if (pin_state != last_pin_stable_state)
+    if (callback &&
+        ((rt_enabled && ft_enabled && pin_state != last_pin_stable_state) ||
+         (rt_enabled && pin_state) ||
+         (ft_enabled && !pin_state)))
     {
-        if (callback)
-            callback(pin_state);
-        // Update the last stable state for the next event
-        last_pin_stable_state = pin_state;
+        callback(pin_state);
     }
 
-    EXTI->PR = EXTI_PR_PR0; // W1C register
+    last_pin_stable_state = pin_state; // Update the last stable state for the next event
     NVIC_EnableIRQ(EXTI0_IRQn);
 }
 
@@ -71,8 +75,12 @@ extern "C"
 
     void EXTI0_IRQHandler(void)
     {
-        NVIC_DisableIRQ(EXTI0_IRQn);
-        debounce_timer_start();
+        if (EXTI->PR & EXTI_PR_PR0)
+        {
+            NVIC_DisableIRQ(EXTI0_IRQn);
+            EXTI->PR = EXTI_PR_PR0; // W1C register
+            debounce_timer_start();
+        }
     }
 
     void TIM2_IRQHandler(void)

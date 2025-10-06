@@ -6,6 +6,8 @@
 #include "integrated_led.h"
 #include "user_button.h"
 
+static bme280_calib_data_t calib_data;
+
 static int error_blink_halt(const Result r)
 {
     // uart_display_result(r);
@@ -86,7 +88,7 @@ static Result init_sysclk()
     //     .pllmul_factor = 9,
     // };
     // OK_OR_PROPAGATE(sysclk_switch(CLOCK_CUSTOM, &conf));
-    OK_OR_PROPAGATE(sysclk_switch(CLOCK_PLL_HSE_48MHz, 0x0));
+    OK_OR_PROPAGATE(sysclk_switch(CLOCK_PLL_HSE_72MHz, 0x0));
     systick_init();
 
     return OK;
@@ -131,7 +133,7 @@ static Result init_peripherals(bme280_calib_data_t *calib_data)
 }
 
 #ifdef BME280_NORMAL_MODE
-static void bme280_main_loop(const bme280_calib_data_t *calib_data)
+static void bme280_main_loop(void)
 {
     int32_t temperature;
     uint32_t pressure, humidity;
@@ -139,10 +141,10 @@ static void bme280_main_loop(const bme280_calib_data_t *calib_data)
     while (1)
     {
         integrated_led_switch(1);
-        OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, calib_data), error_blink_halt);
+        OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, &calib_data), error_blink_halt);
         uart_display_measurements(temperature, pressure, humidity);
         integrated_led_switch(0);
-        OK_OR(lcd1602_set_backlight(1), error_blink_halt);
+        OK_OR(lcd1602_set_backlight(1), error_blink_halt); // Turn on backlight
         OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), error_blink_halt);
         delay_ms(5000);
         OK_OR(lcd1602_set_backlight(0), error_blink_halt); // Turn off backlight
@@ -150,7 +152,9 @@ static void bme280_main_loop(const bme280_calib_data_t *calib_data)
     }
 }
 #else
-static void bme280_main_loop(const bme280_calib_data_t *calib_data)
+static volatile uint8_t g_forced_measurement_triggered = 0;
+
+static void bme280_main_loop(void)
 {
     int32_t temperature;
     uint32_t pressure, humidity;
@@ -158,43 +162,54 @@ static void bme280_main_loop(const bme280_calib_data_t *calib_data)
 
     while (1)
     {
-        integrated_led_switch(1);
-        OK_OR(bme280_trigger_forced_mode(&ctrl_meas), error_blink_halt); // Trigger measurement
-        OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, calib_data), error_blink_halt);
-        integrated_led_switch(0);
-        uart_display_measurements(temperature, pressure, humidity);
-        OK_OR(lcd1602_set_backlight(1), error_blink_halt);
-        OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), error_blink_halt);
-        delay_ms(3000); // Keep backlight for 10 seconds when a new measurement is displayed
-        OK_OR(lcd1602_set_backlight(0), error_blink_halt);
-        delay_ms(5000); // Dim screen
+        if (g_forced_measurement_triggered)
+        {
+            integrated_led_switch(1);
+            OK_OR(bme280_trigger_forced_mode(&ctrl_meas), error_blink_halt); // Trigger measurement
+            OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, &calib_data), error_blink_halt);
+            integrated_led_switch(0);
+            uart_display_measurements(temperature, pressure, humidity);
+            OK_OR(lcd1602_set_backlight(1), error_blink_halt);
+            OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), error_blink_halt);
+
+            delay_ms(500);
+            g_forced_measurement_triggered = 0;
+            for (uint8_t k = 0; k < 25; ++k)
+            {
+                delay_ms(100);
+                if (g_forced_measurement_triggered)
+                    break;
+            }
+            if (!g_forced_measurement_triggered)
+                OK_OR(lcd1602_set_backlight(0), error_blink_halt);
+        }
+        delay_ms(1);
     }
 }
-#endif
 
-void test(const uint16_t active)
+static void bme280_trigger_routine(const uint16_t input)
 {
-    if (active)
-        uart_print_str("Triggered with status: HIGH\r\n");
-    else
-        uart_print_str("Triggered with status: LOW\r\n");
+    if (!input)
+        g_forced_measurement_triggered = 1;
 }
+#endif
 
 int main(void)
 {
     integrated_led_init();
     OK_OR(init_sysclk(), error_blink_halt);
-
-    enable_user_button((user_btn_trigger_config_t){.enable_rising = 1, .enable_falling = 1, .callback = test});
-
-    bme280_calib_data_t calib_data;
-
     OK_OR(init_peripherals(&calib_data), error_blink_halt);
     OK_OR(display_welcome_message(), error_blink_halt);
 
-    bme280_main_loop(&calib_data);
-    while (1)
-        ;
+#ifdef BME280_FORCED_MODE
+    lcd1602_set_backlight(0);
+    enable_user_button((user_btn_trigger_config_t){
+        .enable_rising = 0,
+        .enable_falling = 1, // Trigger measurement on button release only
+        .callback = bme280_trigger_routine,
+    });
+#endif
+    bme280_main_loop();
 
     return 0;
 }
