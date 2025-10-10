@@ -4,8 +4,9 @@
 #include "stm32f103xb.h"
 #include "result.h"
 
-#define I2C_MAX_FREQUENCY_Sm 100000 // 100kHz
-#define I2C_TIMEOUT_MS 100          // 100ms
+#define I2C_MAX_FREQUENCY_Sm 100000                                                 // 100kHz
+#define I2C_TIMEOUT_MS 100                                                          // 100ms
+#define I2C_BUS_ERROR_MASK (I2C_SR1_BERR | I2C_SR1_ARLO | I2C_SR1_AF | I2C_SR1_OVR) // Mask for detectable hardware errors (SR1 register)
 
 typedef struct I2C_ops_params
 {

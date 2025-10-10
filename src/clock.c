@@ -5,7 +5,15 @@
 #define PLL_STABILIZE_CYCLES 20000UL  // ~2.5ms at 8MHz
 #define SWS_POLL_CYCLES 20000UL       // ~2.5ms at 8MHz
 
-static volatile uint32_t systick_count = 0;
+#define DELAY_STATUS_CONFIGURED 0x1U
+#define DELAY_STATUS_TIM_ENDED 0x2U
+
+/*
+ * Bit 0: Set to indicate that the delay timer has been successfully configured.
+ * Bit 1: Set to indicate that the delay timer has completed its execution cycle.
+ */
+static volatile uint8_t g_delay_status = 0U;
+static volatile uint32_t g_systick_count = 0U;
 
 static uint8_t get_pllmul_factor(void);
 static uint32_t factor_to_pllmul(const uint8_t factor);
@@ -19,23 +27,29 @@ static Result hse_disable_internal(void);
 static Result pll_disable_internal(void);
 static Result disable_unused_internal(void);
 static uint32_t pll_estimate_frequency(const uint8_t use_hse, const uint8_t enable_pllxtpre, const uint8_t pllmul_factor);
+static void delay_init(void);
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-    void SysTick_Handler(void)
+
+    void SysTick_Handler(void) { g_systick_count++; }
+
+    void TIM3_IRQHandler(void)
     {
-        systick_count++;
+        if (TIM3->SR & TIM_SR_UIF)
+        {
+            TIM3->SR &= ~TIM_SR_UIF;
+            g_delay_status |= DELAY_STATUS_TIM_ENDED;
+        }
     }
+
 #ifdef __cplusplus
 }
 #endif
 
-uint32_t get_systick_count(void)
-{
-    return systick_count;
-}
+uint32_t get_systick_count(void) { return g_systick_count; }
 
 // TODO: pause/resume interrupts
 // TODO: peripherals reset with correct clocks
@@ -174,16 +188,30 @@ void systick_init(void)
     SysTick->LOAD = (cpu_clock_frequency() / 1000) - 1; // Ticks per ms;
     SysTick->VAL = 0;                                   // Reset timer
     SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
+
+    if (!(g_delay_status & DELAY_STATUS_CONFIGURED))
+        delay_init();
 }
 
-// Precise delay function
 void delay_ms(const uint32_t ms)
 {
-    for (uint32_t i = 0; i < ms; i++)
+    if (ms == 0)
+        return;
+
+    uint32_t remaining_delay = ms * 10; // 100µs ticks
+    while (remaining_delay > 0)
     {
-        // Wait until the COUNTFLAG is set (timer reached zero)
-        while (!(SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk))
-            ;
+        uint16_t current_delay = MIN(remaining_delay, UINT16_MAX); // TIMx_ARR is 16 bits only.
+
+        g_delay_status &= ~DELAY_STATUS_TIM_ENDED;
+        TIM3->ARR = current_delay - 1;
+        TIM3->EGR = TIM_EGR_UG;   // TIMx_CR1_URS is set in delay_init => setting UG won't trigger interrupt
+        TIM3->CR1 |= TIM_CR1_CEN; // Start timer
+        while (!(g_delay_status & DELAY_STATUS_TIM_ENDED))
+        {
+            __WFI(); // Wait for interrupt
+        }
+        remaining_delay -= current_delay;
     }
 }
 
@@ -419,4 +447,24 @@ static Result disable_unused_internal(void)
     }
 
     return OK;
+}
+
+static void delay_init(void)
+{
+    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+
+    const uint32_t hclk = cpu_clock_frequency();
+    const uint32_t apb1_prescaler = PPRE_to_prescaler_div_factor(
+        (RCC->CFGR & RCC_CFGR_PPRE1_Msk) >> RCC_CFGR_PPRE1_Pos);
+    const uint32_t pclk1 = hclk / apb1_prescaler;
+    const uint32_t ck_psc =
+        apb1_prescaler > 1 ? (pclk1 * 2) : pclk1; // Per clock tree
+
+    TIM3->PSC = (ck_psc / (10000)) - 1; // 100µs ticks (0.1ms)
+    TIM3->CR1 |= TIM_CR1_OPM | TIM_CR1_URS;
+    TIM3->DIER |= TIM_DIER_UIE;
+
+    NVIC_EnableIRQ(TIM3_IRQn);
+    TIM3->SR &= ~TIM_SR_UIF; // Clear update interrupt flag just in case
+    g_delay_status |= DELAY_STATUS_CONFIGURED;
 }

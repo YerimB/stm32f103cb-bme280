@@ -7,6 +7,7 @@
 
 #define LCD1602_I2C_ADDR 0x27
 
+#define LCD1602_RS_Msk 0x01
 #define LCD1602_RS_CMD 0x00
 #define LCD1602_RS_DATA 0x01
 #define LCD1602_RW_WRITE 0x00
@@ -42,8 +43,6 @@
 #define LCD1602_CMD_FN_SET_5x10_DOTS (LCD1602_CMD_FN_SET_CTRL | 0x04)
 
 void lcd1602_set_i2c_instance(I2C_TypeDef *i2c_instance);
-Result lcd1602_send_cmd(const uint8_t cmd);
-Result lcd1602_send_data(char data);
 Result lcd1602_set_backlight(const uint8_t state);
 Result lcd1602_clear(void);
 Result lcd1602_put_cursor(uint8_t row, uint8_t col);

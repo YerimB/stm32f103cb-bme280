@@ -172,7 +172,7 @@ static void bme280_main_loop(void)
             OK_OR(lcd1602_set_backlight(1), error_blink_halt);
             OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), error_blink_halt);
 
-            delay_ms(500);
+            delay_ms(500); // Prevents measurement 0.5ms after one ended
             g_forced_measurement_triggered = 0;
             for (uint8_t k = 0; k < 25; ++k)
             {
@@ -205,7 +205,7 @@ int main(void)
     lcd1602_set_backlight(0);
     enable_user_button((user_btn_trigger_config_t){
         .enable_rising = 0,
-        .enable_falling = 1, // Trigger measurement on button release only
+        .enable_falling = 1, // Triggers measurement on button release only
         .callback = bme280_trigger_routine,
     });
 #endif

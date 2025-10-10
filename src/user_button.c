@@ -100,7 +100,8 @@ static void debounce_timer_init(void)
 {
     const uint32_t hclk = cpu_clock_frequency();
     const uint32_t apb1_prescaler = PPRE_to_prescaler_div_factor((RCC->CFGR & RCC_CFGR_PPRE1_Msk) >> RCC_CFGR_PPRE1_Pos);
-    const uint32_t ck_psc = apb1_prescaler > 1 ? (hclk * 2) : hclk; // Per clock tree
+    const uint32_t pclk1 = hclk / apb1_prescaler;
+    const uint32_t ck_psc = apb1_prescaler > 1 ? (pclk1 * 2) : pclk1; // Per clock tree
 
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
     TIM2->PSC = (ck_psc / 1000000) - 1; // µs

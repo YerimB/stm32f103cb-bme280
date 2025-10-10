@@ -11,10 +11,12 @@ typedef enum Result
     CLOCK_HSE_FAILURE,
     CLOCK_ILLEGAL_DISABLE,
     // I2C Errors
-    I2C_INIT_FAILED, // I2C initialization error
-    I2C_TIMEOUT_ERR, // I2C operation timed out
-    I2C_NACK,        // I2C address NACK received
-    I2C_BUS_ERROR,   // I2C bus error (BERR)
+    I2C_INIT_FAILED,      // I2C initialization error
+    I2C_TIMEOUT_ERR,      // I2C operation timed out
+    I2C_NACK,             // I2C address NACK received
+    I2C_BUS_ERROR,        // I2C bus error (BERR)
+    I2C_ARBITRATION_LOST, // I2C arbitration lost (ARLO)
+    I2C_OVERRUN_UNDERRUN, // I2C overrun/underrun (OVR)
     // SPI Errors
     SPI_TIMEOUT_ERR,
     // Sensor Errors (here BME280)

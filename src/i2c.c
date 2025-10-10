@@ -1,5 +1,24 @@
 #include "i2c.h"
 #include "clock.h"
+#include "uart.h"
+
+/**
+ * @brief Checks for and handles I2C hardware errors based on RM0008.
+ * @param i2c Pointer to the I2C peripheral (I2C1, I2C2, etc.).
+ * @return Result OK if no error, or an appropriate error code.
+ *
+ * @note This function should be called after an operation that can generate an error,
+ *       typically while waiting for a status flag like ADDR or TXE.
+ */
+static Result i2c_check_and_handle_error(I2C_TypeDef *i2c);
+
+#define CHECK_I2C_BUS_ERROR_OR_TIMEOUT(bus, systick_from)          \
+    do                                                             \
+    {                                                              \
+        OK_OR_PROPAGATE(i2c_check_and_handle_error(bus));          \
+        if ((get_systick_count() - systick_from) > I2C_TIMEOUT_MS) \
+            return I2C_TIMEOUT_ERR;                                \
+    } while (0)
 
 Result i2c1_init(const int remap)
 {
@@ -75,7 +94,6 @@ Result i2c2_init(void)
     I2C2->CCR &= ~I2C_CCR_FS;                                           // Ensure Sm mode I2C
     I2C2->CCR |= (cr2_freq_MHz * 1000000) / (2 * I2C_MAX_FREQUENCY_Sm); // Set clock control register
     I2C2->TRISE = cr2_freq_MHz + 1;
-
     I2C2->CR1 |= I2C_CR1_PE; // Re-enable
 
     return OK;
@@ -110,21 +128,14 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
     tp = get_systick_count();
     while (!(i2c->SR1 & I2C_SR1_SB)) // Wait for confirmation
     {
-        if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-            return I2C_TIMEOUT_ERR;
+        CHECK_I2C_BUS_ERROR_OR_TIMEOUT(i2c, tp);
     }
 
     i2c->DR = (slave_addr << 1); // Send slave address (7 bits) followed by 0 (write mode)
     tp = get_systick_count();
     while (!(i2c->SR1 & I2C_SR1_ADDR)) // Wait for end of address transmission
     {
-        if (i2c->SR1 & I2C_SR1_AF)
-        {
-            i2c->SR1 &= ~I2C_SR1_AF;
-            return I2C_NACK;
-        }
-        if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-            return I2C_TIMEOUT_ERR;
+        CHECK_I2C_BUS_ERROR_OR_TIMEOUT(i2c, tp);
     }
     (void)i2c->SR2; // Clear ADDR by reading in sequence SR1 -> SR2
 
@@ -134,21 +145,10 @@ Result i2c_write(I2C_TypeDef *i2c, const uint8_t slave_addr, const uint8_t *data
         tp = get_systick_count();
         while (!(i2c->SR1 & I2C_SR1_TXE)) // Wait for data to be received by slave
         {
-            if (i2c->SR1 & I2C_SR1_AF)
-            {
-                i2c->SR1 &= ~I2C_SR1_AF;
-                return I2C_NACK;
-            }
-            if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-                return I2C_TIMEOUT_ERR;
+            CHECK_I2C_BUS_ERROR_OR_TIMEOUT(i2c, tp);
         }
     }
-
-    if (i2c->SR1 & I2C_SR1_BERR)
-    {
-        i2c->SR1 &= ~I2C_SR1_BERR;
-        return I2C_BUS_ERROR;
-    }
+    OK_OR_PROPAGATE(i2c_check_and_handle_error(i2c));
     if (params.generate_stop)
     {
         i2c->CR1 |= I2C_CR1_STOP; // Generate stop condition
@@ -171,21 +171,14 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
     tp = get_systick_count();
     while (!(i2c->SR1 & I2C_SR1_SB)) // Wait for confirmation
     {
-        if ((get_systick_count() - tp) > I2C_TIMEOUT_MS)
-            return I2C_TIMEOUT_ERR;
+        CHECK_I2C_BUS_ERROR_OR_TIMEOUT(i2c, tp);
     }
 
     i2c->DR = (slave_addr << 1) | 1; // Send slave address (7 bits) followed by 1 (read mode)
     tp = get_systick_count();
     while (!(i2c->SR1 & I2C_SR1_ADDR)) // Wait for end of address transmission
     {
-        if (i2c->SR1 & I2C_SR1_AF)
-        {
-            i2c->SR1 &= ~I2C_SR1_AF;
-            return I2C_NACK;
-        }
-        if (get_systick_count() - tp > I2C_TIMEOUT_MS)
-            return I2C_TIMEOUT_ERR;
+        CHECK_I2C_BUS_ERROR_OR_TIMEOUT(i2c, tp);
     }
     (void)i2c->SR2; // Clear ADDR by reading in sequence SR1 -> SR2
 
@@ -195,8 +188,7 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
         tp = get_systick_count();
         while (!(i2c->SR1 & I2C_SR1_RXNE))
         {
-            if (get_systick_count() - tp > I2C_TIMEOUT_MS)
-                return I2C_TIMEOUT_ERR;
+            CHECK_I2C_BUS_ERROR_OR_TIMEOUT(i2c, tp);
         }
         data[0] = i2c->DR;
     }
@@ -210,21 +202,51 @@ Result i2c_read(I2C_TypeDef *i2c, const uint8_t slave_addr, uint8_t *data, const
             tp = get_systick_count();
             while (!(i2c->SR1 & I2C_SR1_RXNE))
             {
-                if (get_systick_count() - tp > I2C_TIMEOUT_MS)
-                    return I2C_TIMEOUT_ERR;
+                CHECK_I2C_BUS_ERROR_OR_TIMEOUT(i2c, tp);
             }
             data[i] = i2c->DR;
         }
     }
-
-    if (i2c->SR1 & I2C_SR1_BERR)
-    {
-        i2c->SR1 &= ~I2C_SR1_BERR;
-        return I2C_BUS_ERROR;
-    }
+    OK_OR_PROPAGATE(i2c_check_and_handle_error(i2c));
     if (params.generate_stop)
     {
         i2c->CR1 |= I2C_CR1_STOP; // Generate stop condition
+    }
+
+    return OK;
+}
+
+static Result i2c_check_and_handle_error(I2C_TypeDef *i2c)
+{
+    // Check if any of the error flags are set.
+    if (i2c->SR1 & I2C_BUS_ERROR_MASK)
+    {
+        Result error_code = OK;
+
+        if (i2c->SR1 & I2C_SR1_AF) // Acknowledge Failure
+        {
+            error_code = I2C_NACK;
+            i2c->SR1 &= ~I2C_SR1_AF; // Clear AF flag
+        }
+        else if (i2c->SR1 & I2C_SR1_BERR) // Bus Error
+        {
+            error_code = I2C_BUS_ERROR;
+            i2c->SR1 &= ~I2C_SR1_BERR; // Clear BERR flag
+        }
+        else if (i2c->SR1 & I2C_SR1_ARLO) // Arbitration Lost
+        {
+            error_code = I2C_ARBITRATION_LOST;
+            i2c->SR1 &= ~I2C_SR1_ARLO; // Clear ARLO flag
+        }
+        else if (i2c->SR1 & I2C_SR1_OVR) // Overrun / Underrun
+        {
+            error_code = I2C_OVERRUN_UNDERRUN;
+            i2c->SR1 &= ~I2C_SR1_OVR; // Clear OVR flag
+        }
+
+        // On error, generate a `stop` condition to release the bus => idle state.
+        i2c->CR1 |= I2C_CR1_STOP;
+        return error_code;
     }
 
     return OK;
