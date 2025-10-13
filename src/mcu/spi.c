@@ -1,4 +1,4 @@
-#include "spi.h"
+#include "mcu/spi.h"
 
 static uint8_t compute_SPI_CR1_BR(const uint32_t target_baud, SPI_TypeDef *spi_instance);
 static Result spi_write_dummy_byte(SPI_TypeDef *spi_instance);

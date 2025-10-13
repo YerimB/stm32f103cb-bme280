@@ -1,5 +1,5 @@
-#include "uart.h"
-#include "clock.h"
+#include "mcu/uart.h"
+#include "mcu/clock.h"
 
 static const uint32_t UART_BAUDRATE = 115200;
 

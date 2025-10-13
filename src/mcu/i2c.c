@@ -1,6 +1,6 @@
-#include "i2c.h"
-#include "clock.h"
-#include "uart.h"
+#include "mcu/i2c.h"
+#include "mcu/clock.h"
+#include "mcu/uart.h"
 
 /**
  * @brief Checks for and handles I2C hardware errors based on RM0008.

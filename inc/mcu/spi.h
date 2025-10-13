@@ -2,8 +2,8 @@
 #define SPI_H
 
 #include "stm32f103xb.h"
-#include "clock.h"
-#include "result.h"
+#include "mcu/clock.h"
+#include "utils/result.h"
 
 #define SPI_TIMEOUT_MS 100
 

@@ -1,5 +1,5 @@
-#include "result.h"
-#include "uart.h"
+#include "utils/result.h"
+#include "mcu/uart.h"
 
 void uart_display_result(const Result status)
 {

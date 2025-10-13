@@ -2,12 +2,13 @@
 #define BME280_H
 
 #include "stm32f103xb.h"
-#include "result.h"
+#include "mcu/clock.h"
+#include "utils/result.h"
 
 // --- Communication Selection ---
 #ifdef BME280_USE_I2C
 
-#include "i2c.h"
+#include "mcu/i2c.h"
 
 #ifdef BME280_SDO_LOW
 #define BME280_I2C_ADDR 0x76
@@ -19,7 +20,7 @@ void bme280_set_i2c_instance(I2C_TypeDef *i2c_instance);
 
 #else // BME280_USE_SPI
 
-#include "spi.h"
+#include "mcu/spi.h"
 
 #define BME280_SPI_TARGET_BAUDRATE 1000000
 #define BME280_SPI_MAX_BAUDRATE 10000000

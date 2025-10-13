@@ -3,7 +3,7 @@
 #define INTEGRATED_LED_H
 
 #include "stm32f103xb.h"
-#include "result.h"
+#include "utils/result.h"
 
 void integrated_led_init(void);
 void integrated_led_switch(const uint8_t status);

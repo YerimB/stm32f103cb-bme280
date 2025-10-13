@@ -2,7 +2,7 @@
 #define CLOCK_H
 
 #include "stm32f103xb.h"
-#include "result.h"
+#include "utils/result.h"
 
 /* WeAct Blue Pill Plus Clone (STM32F103CBT6) values (https://stm32-base.org/boards/STM32F103C8T6-WeAct-Blue-Pill-Plus-Clone) */
 #define HSI_HZ 8000000U              // 8MHz

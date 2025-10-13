@@ -1,6 +1,12 @@
 # Use globally installed Arm GNU Toolchain
 TOOLCHAIN_PATH =
 CXXFLAGS += -Os # Optimize for binary size
+SRC_DIRS := src \
+            src/mcu \
+            src/utils \
+            src/bme280 \
+            src/lcd
+SRC += $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.c))
 USE_ST_CMSIS = true
 
 DEVICE = STM32F103x8

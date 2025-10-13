@@ -23,8 +23,9 @@ typedef enum Result
     SENSOR_NOT_DETECTED, // Sensor ID read failed
     SENSOR_INVALID_READ, // Invalid sensor data read
     SENSOR_CALIB_FAILED, // Sensor calibration read failed
-    // LCD1602 Errors
-    LCD1602_INVALID_POS, // LCD1602 invalid cursor position
+    // LCD Errors
+    HD44780_MISSING_INTERFACE, // HD44780 missing interface
+    LCD_INVALID_POS,           // LCD invalid cursor position
     // General Errors
     INVALID_PARAMETER, // Function parameter invalid
 } Result;

@@ -1,4 +1,4 @@
-#include "clock.h"
+#include "mcu/clock.h"
 
 #define HSI_STABILIZE_CYCLES 20000UL  // ~2.5ms at 8MHz
 #define HSE_STABILIZE_CYCLES 200000UL // ~25ms at 8MHz

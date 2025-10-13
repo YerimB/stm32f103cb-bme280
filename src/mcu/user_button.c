@@ -1,5 +1,5 @@
-#include "user_button.h"
-#include "clock.h"
+#include "mcu/clock.h"
+#include "mcu/user_button.h"
 
 #define TIM_CR1_RESET 0x0000U
 #define TIM_DIER_RESET 0x0000U

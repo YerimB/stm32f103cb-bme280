@@ -1,12 +1,43 @@
 #include "stm32f103xb.h"
-#include "clock.h"
-#include "uart.h"
-#include "bme280.h"
-#include "lcd1602.h"
-#include "integrated_led.h"
-#include "user_button.h"
+#include "mcu/clock.h"
+#include "mcu/uart.h"
+#include "mcu/integrated_led.h"
+#include "mcu/user_button.h"
+#include "bme280/bme280.h"
+#include "lcd/lcd.h"
 
 static bme280_calib_data_t calib_data;
+
+static int error_blink_halt(const Result r);
+static Result display_welcome_message();
+static void uart_display_measurements(int32_t temperature, uint32_t pressure, uint32_t humidity);
+static Result lcd_display_measurements(int32_t temperature, uint32_t pressure, uint32_t humidity);
+static Result init_sysclk();
+static Result init_peripherals(bme280_calib_data_t *calib_data);
+static void bme280_main_loop(void);
+#ifdef BME280_FORCED_MODE
+static void bme280_trigger_routine(const uint16_t input);
+#endif
+
+int main(void)
+{
+    integrated_led_init();
+    OK_OR(init_sysclk(), error_blink_halt);
+    OK_OR(init_peripherals(&calib_data), error_blink_halt);
+    OK_OR(display_welcome_message(), error_blink_halt);
+
+#ifdef BME280_FORCED_MODE
+    OK_OR(lcd_set_backlight(0), error_blink_halt);
+    enable_user_button((user_btn_trigger_config_t){
+        .enable_rising = 0,
+        .enable_falling = 1, // Triggers measurement on button release only
+        .callback = bme280_trigger_routine,
+    });
+#endif
+    bme280_main_loop();
+
+    return 0;
+}
 
 static int error_blink_halt(const Result r)
 {
@@ -19,13 +50,14 @@ static Result display_welcome_message()
 {
     uart_print_str("\n-------------------------------------\r\nSTM32F103CB WeAct Blue Pill Plus & BME280 Sensor Example\r\n-------------------------------------\r\n\n");
 
-    OK_OR_PROPAGATE(lcd1602_put_cursor(0, 0));
-    OK_OR_PROPAGATE(lcd1602_put_str("STM32F103CB"));
-    OK_OR_PROPAGATE(lcd1602_put_cursor(1, 0));
-    OK_OR_PROPAGATE(lcd1602_put_str("BME280 Sensor"));
+    OK_OR_PROPAGATE(lcd_set_backlight(1));
+    OK_OR_PROPAGATE(lcd_set_cursor_pos(0, 0));
+    OK_OR_PROPAGATE(lcd_putstr("STM32F103CB"));
+    OK_OR_PROPAGATE(lcd_set_cursor_pos(1, 0));
+    OK_OR_PROPAGATE(lcd_putstr("BME280 Sensor"));
 
     delay_ms(3000);
-    OK_OR_PROPAGATE(lcd1602_clear());
+    OK_OR_PROPAGATE(lcd_clear());
     delay_ms(100);
 
     return OK;
@@ -53,7 +85,7 @@ static void uart_display_measurements(int32_t temperature, uint32_t pressure, ui
     uart_print_str(" %\r\n");
 }
 
-static Result lcd1602_display_measurements(int32_t temperature, uint32_t pressure, uint32_t humidity)
+static Result lcd_display_measurements(int32_t temperature, uint32_t pressure, uint32_t humidity)
 {
     const uint32_t pa_int = pressure / (256 * 100);
     const uint32_t pa_frac = (pressure / 256) % 100;
@@ -61,21 +93,21 @@ static Result lcd1602_display_measurements(int32_t temperature, uint32_t pressur
     const int32_t t_frac = (temperature % 100) / 10;
 
     // First line: T:xx.xC H:xxx%
-    OK_OR_PROPAGATE(lcd1602_put_cursor(0, 0));
-    OK_OR_PROPAGATE(lcd1602_put_str("T:"));
-    OK_OR_PROPAGATE(lcd1602_put_int(t_int));
-    OK_OR_PROPAGATE(lcd1602_put_str("."));
-    OK_OR_PROPAGATE(lcd1602_put_int(t_frac < 0 ? -t_frac : t_frac));
-    OK_OR_PROPAGATE(lcd1602_put_str("C H:"));
-    OK_OR_PROPAGATE(lcd1602_put_int(humidity / 1024));
-    OK_OR_PROPAGATE(lcd1602_put_str("%"));
+    OK_OR_PROPAGATE(lcd_set_cursor_pos(0, 0));
+    OK_OR_PROPAGATE(lcd_putstr("T:"));
+    OK_OR_PROPAGATE(lcd_putint(t_int));
+    OK_OR_PROPAGATE(lcd_putstr("."));
+    OK_OR_PROPAGATE(lcd_putint(t_frac < 0 ? -t_frac : t_frac));
+    OK_OR_PROPAGATE(lcd_putstr("C H:"));
+    OK_OR_PROPAGATE(lcd_putint(humidity / 1024));
+    OK_OR_PROPAGATE(lcd_putstr("%"));
     // Second line: P:xxxx.xx hPa
-    OK_OR_PROPAGATE(lcd1602_put_cursor(1, 0));
-    OK_OR_PROPAGATE(lcd1602_put_str("P:"));
-    OK_OR_PROPAGATE(lcd1602_put_int(pa_int));
-    OK_OR_PROPAGATE(lcd1602_put_str(pa_frac < 10 ? ".0" : "."));
-    OK_OR_PROPAGATE(lcd1602_put_int(pa_frac));
-    OK_OR_PROPAGATE(lcd1602_put_str(" hPa"));
+    OK_OR_PROPAGATE(lcd_set_cursor_pos(1, 0));
+    OK_OR_PROPAGATE(lcd_putstr("P:"));
+    OK_OR_PROPAGATE(lcd_putint(pa_int));
+    OK_OR_PROPAGATE(lcd_putstr(pa_frac < 10 ? ".0" : "."));
+    OK_OR_PROPAGATE(lcd_putint(pa_frac));
+    OK_OR_PROPAGATE(lcd_putstr(" hPa"));
 
     return OK;
 }
@@ -124,10 +156,9 @@ static Result init_peripherals(bme280_calib_data_t *calib_data)
     OK_OR_PROPAGATE(bme280_get_calib(calib_data));
     uart_print_str("Done.\r\n");
 
-    // Init LCD1602
-    lcd1602_set_i2c_instance(I2C1);
-    OK_OR_PROPAGATE(lcd1602_init());
-    uart_print_str("--- LCD1602 initialized\r\n");
+    lcd_set_i2c_instance(I2C1);
+    OK_OR_PROPAGATE(lcd_initialize());
+    uart_print_str("--- LCD initialized\r\n");
 
     return OK;
 }
@@ -144,10 +175,10 @@ static void bme280_main_loop(void)
         OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, &calib_data), error_blink_halt);
         uart_display_measurements(temperature, pressure, humidity);
         integrated_led_switch(0);
-        OK_OR(lcd1602_set_backlight(1), error_blink_halt); // Turn on backlight
-        OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), error_blink_halt);
+        OK_OR(lcd_set_backlight(1), error_blink_halt);
+        OK_OR(lcd_display_measurements(temperature, pressure, humidity), error_blink_halt);
         delay_ms(5000);
-        OK_OR(lcd1602_set_backlight(0), error_blink_halt); // Turn off backlight
+        OK_OR(lcd_set_backlight(0), error_blink_halt);
         delay_ms(25000);
     }
 }
@@ -169,8 +200,8 @@ static void bme280_main_loop(void)
             OK_OR(bme280_read_measurements(&temperature, &pressure, &humidity, &calib_data), error_blink_halt);
             integrated_led_switch(0);
             uart_display_measurements(temperature, pressure, humidity);
-            OK_OR(lcd1602_set_backlight(1), error_blink_halt);
-            OK_OR(lcd1602_display_measurements(temperature, pressure, humidity), error_blink_halt);
+            OK_OR(lcd_set_backlight(1), error_blink_halt);
+            OK_OR(lcd_display_measurements(temperature, pressure, humidity), error_blink_halt);
 
             delay_ms(500); // Prevents measurement 0.5ms after one ended
             g_forced_measurement_triggered = 0;
@@ -181,7 +212,7 @@ static void bme280_main_loop(void)
                     break;
             }
             if (!g_forced_measurement_triggered)
-                OK_OR(lcd1602_set_backlight(0), error_blink_halt);
+                OK_OR(lcd_set_backlight(0), error_blink_halt);
         }
         delay_ms(1);
     }
@@ -193,23 +224,3 @@ static void bme280_trigger_routine(const uint16_t input)
         g_forced_measurement_triggered = 1;
 }
 #endif
-
-int main(void)
-{
-    integrated_led_init();
-    OK_OR(init_sysclk(), error_blink_halt);
-    OK_OR(init_peripherals(&calib_data), error_blink_halt);
-    OK_OR(display_welcome_message(), error_blink_halt);
-
-#ifdef BME280_FORCED_MODE
-    lcd1602_set_backlight(0);
-    enable_user_button((user_btn_trigger_config_t){
-        .enable_rising = 0,
-        .enable_falling = 1, // Triggers measurement on button release only
-        .callback = bme280_trigger_routine,
-    });
-#endif
-    bme280_main_loop();
-
-    return 0;
-}

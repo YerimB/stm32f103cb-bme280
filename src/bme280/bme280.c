@@ -1,5 +1,4 @@
-#include "bme280.h"
-#include "clock.h"
+#include "bme280/bme280.h"
 
 // BME280 reference: https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bme280-ds002.pdf
 
