@@ -11,18 +11,20 @@ The firmware is written in C using CMSIS headers and focuses on a clean, modular
     -   Supports both I2C (default) and SPI communication, selectable at compile time.
     -   Supports "Normal" mode (continuous sampling) and "Forced" mode (on-demand sampling).
     -   Implements Bosch's official compensation algorithms for high-accuracy readings.
--   **Display Drivers**:
-    -   **LCD1602**: Displays formatted sensor data via an I2C backpack (PCF8574).
-    -   **UART**: Transmits human-readable data (115200 baud, 8N1) for monitoring on a PC.
+-   **Decoupled LCD Driver**:
+    -   **HD44780**: A generic, protocol-agnostic driver that manages the LCD's command set and logic. It is fully portable to any hardware.
+    -   **PCF8574**: A hardware-specific driver that handles I2C communication with the popular LCD backpack.
+    -   **LCD Facade**: A simple, top-level API (`lcd.h`) that makes the entire subsystem easy to use in the main application.
+-   **UART**: Transmits human-readable data (115200 baud, 8N1) for monitoring on a PC.
 -   **Error Handling**: Uses enum-based result codes to report errors via UART and a blinking onboard LED.
 -   **Timing**: Employs a SysTick-based timer for precise delays and timeouts.
--   **Modular Design**: Drivers are decoupled for better reusability and clarity.
+-   **Modular Design**: The project is structured with a clear separation between hardware-agnostic drivers, MCU peripheral drivers, and the main application logic for maximum reusability.
 
 ## Hardware Requirements
 
 -   **MCU Board**: WeAct "Blue Pill Plus" (STM32F103CBT6) or a similar clone.
 -   **Sensor**: GY-BME280 breakout board.
--   **Display**: 16x2 LCD (LCD1602) with a PCF8574 I2C backpack.
+-   **Display**: 16x2 LCD with a PCF8574 I2C backpack.
 -   **Serial Adapter**: USB-to-UART (TTL level) adapter for viewing serial output and/or flashing.
 -   **Crystal**: The board must have an 8MHz HSE crystal populated.
 
@@ -30,17 +32,17 @@ The firmware is written in C using CMSIS headers and focuses on a clean, modular
 
 ### I2C Wiring (Default Setup)
 
-This is the default configuration for the project. The BME280 and LCD1602 share the same I2C bus.
+This is the default configuration for the project. The BME280 and LCD share the same I2C bus.
 
 -   **BME280 Sensor:**
     -   `SCL` -> `PB6` (I2C1 SCL)
     -   `SDA` -> `PB7` (I2C1 SDA)
     -   `VCC` -> `3.3V`
     -   `GND` -> `GND`
-    -   `CSB` -> `3.3V` (This selects I2C mode on the BME280 board)
-    -   `SDO` -> `GND` (This sets the I2C address to `0x76`)
+    -   `CSB` -> `3.3V` (Selects I2C mode on the BME280 board)
+    -   `SDO` -> `GND` (Sets the I2C address to `0x76`)
 
--   **LCD1602 with I2C Backpack:**
+-   **LCD with I2C Backpack:**
     -   `SCL` -> `PB6` (Shared with BME280)
     -   `SDA` -> `PB7` (Shared with BME280)
     -   `VCC` -> `5V`
@@ -145,7 +147,7 @@ make BME280_PROTOCOL=SPI BME280_MODE=NORMAL
 1.  Power the board and connect a UART terminal to the serial port at **115200 baud**.
 2.  On startup, a welcome message is displayed on the LCD and sent via UART.
 3.  The main loop begins, taking measurements based on the configured mode:
-    -   **Forced Mode**: A new measurement is triggered every 8 seconds.
+    -   **Forced Mode**: A new measurement can be triggered by pressing the user button (`KEY`).
     -   **Normal Mode**: The sensor measures continuously, and data is read every 30 seconds.
 4.  The LCD displays the data in a compact format:
     ```
