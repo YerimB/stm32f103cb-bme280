@@ -33,6 +33,10 @@
 #define HD44780_FN_SET_5x8_DOTS HD44780_FN_SET_CTRL
 #define HD44780_FN_SET_5x10_DOTS (HD44780_FN_SET_CTRL | 0x04)
 
+// -- CGRAM Address --
+#define HD44780_CGRAM_Msk 0x40
+#define HD44780_CGRAM_POS_OFFSET 0x03
+
 typedef enum hd44780_rs_s
 {
     HD44780_RS_CMD = 0,
@@ -61,5 +65,6 @@ Result hd44780_set_cursor(const uint8_t row, const uint8_t col);
 Result hd44780_putchar(const char c);
 Result hd44780_putstr(const char *s);
 Result hd44780_putint(int32_t n);
+Result hd44780_add_custom_char(const uint8_t cgram_pos, const unsigned char charmap[8]);
 
 #endif // HD44780_H_

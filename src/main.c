@@ -14,6 +14,7 @@ static void uart_display_measurements(int32_t temperature, uint32_t pressure, ui
 static Result lcd_display_measurements(int32_t temperature, uint32_t pressure, uint32_t humidity);
 static Result init_sysclk();
 static Result init_peripherals(bme280_calib_data_t *calib_data);
+static Result setup_custom_characters(void);
 static void bme280_main_loop(void);
 #ifdef BME280_FORCED_MODE
 static void bme280_trigger_routine(const uint16_t input);
@@ -25,6 +26,9 @@ int main(void)
     OK_OR(init_sysclk(), error_blink_halt);
     OK_OR(init_peripherals(&calib_data), error_blink_halt);
     OK_OR(display_welcome_message(), error_blink_halt);
+
+    // Define '°' as custom character at position 1
+    OK_OR(setup_custom_characters(), error_blink_halt);
 
 #ifdef BME280_FORCED_MODE
     OK_OR(lcd_set_backlight(0), error_blink_halt);
@@ -98,7 +102,7 @@ static Result lcd_display_measurements(int32_t temperature, uint32_t pressure, u
     OK_OR_PROPAGATE(lcd_putint(t_int));
     OK_OR_PROPAGATE(lcd_putstr("."));
     OK_OR_PROPAGATE(lcd_putint(t_frac < 0 ? -t_frac : t_frac));
-    OK_OR_PROPAGATE(lcd_putstr("C H:"));
+    OK_OR_PROPAGATE(lcd_putstr("\1C H:")); // '°' is custom character at pos 1, sending 0x01 as char to display means displaying '°'
     OK_OR_PROPAGATE(lcd_putint(humidity / 1024));
     OK_OR_PROPAGATE(lcd_putstr("%"));
     // Second line: P:xxxx.xx hPa
@@ -224,3 +228,21 @@ static void bme280_trigger_routine(const uint16_t input)
         g_forced_measurement_triggered = 1;
 }
 #endif
+
+static Result setup_custom_characters(void)
+{
+    const unsigned char degree_char_map[8] = {
+        0b00110,
+        0b01001,
+        0b01001,
+        0b00110,
+        0b00000,
+        0b00000,
+        0b00000,
+        0b00000,
+    };
+    // Define '°' as custom character at position 1
+    OK_OR_PROPAGATE(lcd_create_custom_char(1, degree_char_map));
+
+    return OK;
+}

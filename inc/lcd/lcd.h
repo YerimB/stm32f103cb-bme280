@@ -13,5 +13,6 @@ Result lcd_initialize(void);
 #define lcd_putchar(c) hd44780_putchar(c)
 #define lcd_putstr(s) hd44780_putstr(s)
 #define lcd_putint(n) hd44780_putint(n)
+#define lcd_create_custom_char(pos, charmap) hd44780_add_custom_char(pos, charmap)
 
 #endif // LCD_H_

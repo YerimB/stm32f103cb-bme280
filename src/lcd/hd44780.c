@@ -148,3 +148,18 @@ static Result _hd44780_send_byte(const hd44780_rs_t rs, const uint8_t byte)
     data[1] = byte << 4U;              // Lower nibble shifted (no mask needed)
     return s_interface->send_nibbles(rs, data, 2);
 }
+
+Result hd44780_add_custom_char(const uint8_t cgram_pos, const unsigned char charmap[8])
+{
+    if (cgram_pos > 7)
+        return INVALID_PARAMETER;
+
+    const uint8_t cgram_pos_cmd = HD44780_CGRAM_Msk | (cgram_pos << HD44780_CGRAM_POS_OFFSET);
+
+    OK_OR_PROPAGATE(_hd44780_send_byte(HD44780_RS_CMD, cgram_pos_cmd));
+    for (uint8_t i = 0; i < 8; ++i)
+    {
+        OK_OR_PROPAGATE(_hd44780_send_byte(HD44780_RS_DATA, charmap[i]));
+    }
+    return hd44780_set_cursor(0, 0); // Set cursor back to screen
+}
