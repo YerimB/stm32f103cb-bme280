@@ -151,7 +151,7 @@ make BME280_PROTOCOL=SPI BME280_MODE=NORMAL
     -   **Normal Mode**: The sensor measures continuously, and data is read every 30 seconds.
 4.  The LCD displays the data in a compact format:
     ```
-    T:25.3C H:60%
+    T:25.3°C H:60%
     P:1013.25 hPa
     ```
 5.  The UART terminal shows more detailed output:
